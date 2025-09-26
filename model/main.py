@@ -1,5 +1,6 @@
 import torch
-import CLIP_encoder
+import model.CLIP_Encoder as CLIP_encoder
+import model.Transformer_Block as Transformer_Block
 
 def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
