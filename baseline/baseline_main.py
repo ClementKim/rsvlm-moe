@@ -1,4 +1,4 @@
-import torch
+import argparse, torch, json, os
 
 from tqdm import tqdm
 from functools import partial
@@ -30,12 +30,32 @@ class RS_dataset(Dataset):
         return question, answer, img
 
 class pretrained_model:
-    def __init__(self):
-        self.answer_dict = {"qwen": {}, "llama": {}, "gemma": {}, "phi4": {}}
+    def __init__(self, model):
+        self.answer_dict = {
+            "qwen": {
+                "low": [],
+                "high": []
+                },
+            "llama": {
+                "low": [],
+                "high": []
+                },
+            "gemma": {
+                "low": [],
+                "high": []
+                }
+            }
 
-        self.qwen_model, self.qwen_processor = baseline_models.qwen_vl()
-        # self.llama_model, self.llama_processor = baseline_models.llama_vision()
-        # self.gemma_model, self.gemma_processor = baseline_models.gemma()
+        self.model = model
+
+        if self.model == "qwen":
+            self.model, self.processor = baseline_models.qwen_vl()
+
+        elif self.model == "llama":
+            self.model, self.processor = baseline_models.llama_vision()
+
+        elif self.model == "gemma":
+            self.model, self.processor = baseline_models.gemma()
 
 def qwen_collate_fn(batch, processor):
     """
@@ -128,8 +148,15 @@ def gemma_collate_fn(batch, processor):
 
     texts = []
     for q in questions:
+        # CORRECT: Structure content as a list of dictionaries
         messages = [
-            {"role": "user", "content": ["<image>", q]}
+            {
+                "role": "user", 
+                "content": [
+                    {"type": "image"},
+                    {"type": "text", "text": q},
+                ]
+            }
         ]
         text = processor.apply_chat_template(
             messages, tokenize=False, add_generation_prompt=True
@@ -144,72 +171,68 @@ def gemma_collate_fn(batch, processor):
     )
     return inputs, questions, answers
 
-def main():
+def main(args):
     device = "cuda" if torch.cuda.is_available() else "cpu"
-
-    # 모델 로드
-    vlm = pretrained_model()
-    vlm.qwen_model.eval()
-    # vlm.llama_model.eval()
-    # vlm.gemma_model.eval()
 
     # 데이터 준비
     dataset_dict = preprocessing.rsvqa_all({})
     low_dataset = RS_dataset(dataset_dict, "low")
     high_dataset = RS_dataset(dataset_dict, "high")
 
-    # 예시: Qwen용 DataLoader (필요한 모델만 골라서 사용)
-    low_qwen_loader = DataLoader(
+    # 모델 로드
+    vlm = pretrained_model(args.model)
+    vlm.model.eval()
+
+    if args.model == "qwen":
+        set_collate_fn = qwen_collate_fn
+
+    elif args.model == "llama":
+        set_collate_fn = llama_collate_fn
+
+    elif args.model == "gemma":
+        set_collate_fn = gemma_collate_fn
+
+    low_loader = DataLoader(
         low_dataset,
-        batch_size=32,
-        shuffle=False,
-        num_workers=4,
-        collate_fn=partial(qwen_collate_fn, processor=vlm.qwen_processor),
+        batch_size = args.batch,
+        shuffle = False,
+        num_workers = 4,
+        collate_fn = partial(set_collate_fn, processor = vlm.processor)
     )
 
-    # low_llama_loader = DataLoader(
-    #     low_dataset,
-    #     batch_size=4,
-    #     shuffle=False,
-    #     num_workers=4,
-    #     collate_fn=partial(llama_collate_fn, processor=vlm.llama_processor),
-    # )
-    # low_gemma_loader = DataLoader(
-    #     low_dataset,
-    #     batch_size=4,
-    #     shuffle=False,
-    #     num_workers=4,
-    #     collate_fn=partial(gemma_collate_fn, processor=vlm.gemma_processor),
-    # )
+    high_loader = DataLoader(
+        high_dataset,
+        batch_size = args.batch,
+        shuffle = False,
+        num_workers = 4,
+        collate_fn = partial(set_collate_fn, processor = vlm.processor)
+    )
 
-    for batch_inputs, questions, answers in tqdm(low_qwen_loader, desc = "Qwen Inference"):
-        batch_inputs = {k: v.to(vlm.qwen_model.device) if hasattr(v, "to") else v
+    for batch_inputs, questions, answers in tqdm(low_loader, desc = f"{args.model} Inference (Low Resolution)"):
+        batch_inputs = {k: v.to(vlm.model.device) if hasattr(v, "to") else v
                         for k, v in batch_inputs.items()}
         with torch.no_grad():
-            gen_ids = vlm.qwen_model.generate(**batch_inputs, max_new_tokens=64)
+            gen_ids = vlm.model.generate(**batch_inputs, max_new_tokens=64)
 
-        print(vlm.qwen_processor.batch_decode(gen_ids, skip_special_tokens=True))
-        break
+        vlm.answer_dict[args.model]["low"].append(vlm.processor.batch_decode(gen_ids, skip_special_tokens=True))
 
-    # for batch_inputs, questions, answers in tqdm(low_llama_loader, desc = "Llama Inference"):
-    #     batch_inputs = {k: v.to(vlm.llama_model.device) if hasattr(v, "to") else v
-    #                     for k, v in batch_inputs.items()}
-        
-    #     with torch.no_grad():
-    #         gen_ids = vlm.llama_model.generate(**batch_inputs, max_new_tokens=64)
+    for batch_inputs, questions, answers in tqdm(high_loader, desc = f"{args.model} Inference (High Resolution)"):
+        batch_inputs = {k: v.to(vlm.model.device) if hasattr(v, "to") else v
+                        for k, v in batch_inputs.items()}
+        with torch.no_grad():
+            gen_ids = vlm.model.generate(**batch_inputs, max_new_tokens=64)
 
-    #     print(vlm.llama_processor.batch_decode(gen_ids, skip_special_tokens=True))
-    #     break
+        vlm.answer_dict[args.model]["high"].append(vlm.processor.batch_decode(gen_ids, skip_special_tokens=True))
 
-    # for batch_inputs, questions, answers in tqdm(low_gemma_loader, desc = "Gemma Inference"):
-    #     batch_inputs = {k: v.to(vlm.gemma.device) if hasattr(v, "to") else v
-    #                     for k, v in batch_inputs.items()}
-        
-    #     with torch.no_grad():
-    #         gen_ids = vlm.gemma_model.generate(**batch_inputs, max_new_tokens=64)
-
-    #     print(vlm.llama_processor.batch_decode(gen_ids, skip_special_tokens=True))
-    #     break
+    # 결과 저장
+    os.makedirs("./results", exist_ok=True)
+    with open(f"./results/{args.model}_results.json", "w") as f:
+        json.dump(vlm.answer_dict[args.model], f, indent=4)
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model", type = str, required = True, default = "qwen")
+    parser.add_argument("--batch", type = int, required = True, default = 32)
+    args = parser.parse_args()
+
+    main(args)
