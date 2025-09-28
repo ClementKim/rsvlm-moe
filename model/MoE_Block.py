@@ -4,25 +4,9 @@ import torch.nn.functional as F
 from typing import Callable, Optional
 
 class MLPBlock(nn.Module):
-    """두 단계 Feed-Forward (FFN) 블록.
-
-    Transformer FFN과 동일한 구조 (Linear -> 활성함수 -> Dropout -> Linear -> Dropout).
-
-    입력 형태:
-        (B, H) 또는 (B, T, H). 2D 입력은 내부적으로 (B, 1, H)로 확장 후 다시 복구.
-
-    Args:
-        hidden_size: 입력/기본 히든 차원.
-        mlp_dim: 확장 차원 (중간 피드포워드 차원).
-        out_dim: 출력 차원 (기본: hidden_size).
-        dropout_rate: 드롭아웃 비율.
-        bias_std: bias 초기화 표준편차 (아주 작게 설정해 초반 영향 최소화).
-        use_bias: Linear 계층 bias 사용 여부.
-        dtype: 내부 연산 강제 dtype (ex. torch.float16).
-        activation: 활성함수 (기본 GELU). 호출 가능한 함수 (tensor -> tensor).
-
-    deterministic:
-        forward 인자. True 이면 dropout 비활성. False/None 이면 일반 동작 (self.training에 따라 Dropout).
+    """
+    표준 2계층 피드포워드 네트워크(FFN) 또는 다층 퍼셉트론(MLP) 블록.
+    Transformer의 FFN과 동일한 구조(Linear -> Activation -> Dropout -> Linear -> Dropout)를 가집니다.
     """
     def __init__(self,
                  hidden_size: int,
@@ -33,7 +17,19 @@ class MLPBlock(nn.Module):
                  use_bias: bool = True,
                  dtype: Optional[torch.dtype] = None,
                  activation: Optional[Callable[[torch.Tensor], torch.Tensor]] = None):
-        
+        """
+        MLPBlock을 초기화합니다.
+
+        Args:
+            hidden_size (int): 입력 및 기본 은닉 차원.
+            mlp_dim (int): 중간 계층의 확장 차원.
+            out_dim (Optional[int]): 출력 차원. None이면 hidden_size와 동일하게 설정됩니다.
+            dropout_rate (float): 드롭아웃 비율.
+            bias_std (float): 편향(bias) 초기화를 위한 표준편차.
+            use_bias (bool): 선형 계층에서 편향을 사용할지 여부.
+            dtype (Optional[torch.dtype]): 내부 계산에 사용할 데이터 타입.
+            activation (Optional[Callable]): 사용할 활성화 함수. None이면 F.gelu가 사용됩니다.
+        """
         super().__init__()
         self.hidden_size = hidden_size
         self.mlp_dim = mlp_dim
@@ -42,11 +38,14 @@ class MLPBlock(nn.Module):
         self._target_dtype = dtype
         self.activation = activation or F.gelu
 
+        # 첫 번째 선형 계층 (입력 -> 중간 차원)
         self.fc1 = nn.Linear(hidden_size, mlp_dim, bias=use_bias)
+        # 두 번째 선형 계층 (중간 차원 -> 출력 차원)
         self.fc2 = nn.Linear(mlp_dim, self.out_dim, bias=use_bias)
+        # 드롭아웃 계층
         self.dropout = nn.Dropout(dropout_rate)
 
-        # 가중치 초기화
+        # 가중치 및 편향 초기화
         nn.init.xavier_uniform_(self.fc1.weight)
         nn.init.xavier_uniform_(self.fc2.weight)
         if use_bias:
@@ -54,34 +53,38 @@ class MLPBlock(nn.Module):
             nn.init.normal_(self.fc2.bias, std=bias_std)
 
     def forward(self, x: torch.Tensor, deterministic: bool | None = None) -> torch.Tensor:
-        original_shape = x.shape
+        """
+        MLP 블록의 순전파를 수행합니다.
 
-        # (B, H) 입력을 (B, 1, H)로 확장하여 (B, T, H) 형태 처리 통일
-        squeezed = False
-        if x.dim() == 2:
-            x = x.unsqueeze(1)
-            squeezed = True
+        Args:
+            x (torch.Tensor): (B, ..., H) 형태의 입력 텐서.
+            deterministic (bool | None): True이면 드롭아웃을 비활성화합니다.
+                                         None이면 self.training 상태에 따라 드롭아웃이 적용됩니다.
 
-        # 필요 시 dtype 강제 변환
+        Returns:
+            torch.Tensor: (B, ..., out_dim) 형태의 출력 텐서.
+        """
+        # 필요 시 데이터 타입을 변환합니다.
         if self._target_dtype is not None and x.dtype != self._target_dtype:
             x = x.to(self._target_dtype)
 
-        # 첫 번째 선형 + 활성함수 + 드롭아웃
+        # 첫 번째 선형 계층 -> 활성화 함수 -> 드롭아웃
         x = self.fc1(x)
         x = self.activation(x)
         x = self._maybe_dropout(x, deterministic)
 
-        # 두 번째 선형 + 드롭아웃
+        # 두 번째 선형 계층 -> 드롭아웃
         x = self.fc2(x)
         x = self._maybe_dropout(x, deterministic)
 
-        if squeezed:
-            x = x.squeeze(1)
         return x
 
     def _maybe_dropout(self, tensor: torch.Tensor, deterministic: bool | None) -> torch.Tensor:
-        # deterministic=True -> 항상 드롭아웃 비활성
+        """
+        deterministic 플래그에 따라 조건부로 드롭아웃을 적용합니다.
+        """
+        # deterministic이 True이면 드롭아웃을 적용하지 않습니다.
         if deterministic:
             return tensor
-        # Dropout 모듈은 self.training이 False면 자동 no-op 이므로 그대로 호출
+        # self.training이 False이면 dropout 모듈은 자동으로 비활성화됩니다.
         return self.dropout(tensor)
