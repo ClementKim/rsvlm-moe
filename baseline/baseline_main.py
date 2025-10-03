@@ -1,4 +1,5 @@
-import argparse, torch, json, os
+import argparse, torch, json, os, random
+import numpy as np
 
 from tqdm import tqdm
 from functools import partial
@@ -172,12 +173,29 @@ def gemma_collate_fn(batch, processor):
     return inputs, questions, answers
 
 def main(args):
+    # control randomness
+    seed = args.seed
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     # 데이터 준비
     dataset_dict = preprocessing.rsvqa_all({})
-    low_dataset = RS_dataset(dataset_dict, "low")
-    high_dataset = RS_dataset(dataset_dict, "high")
+    train, val, test = preprocessing.rsvqa_split(dataset_dict)
+
+    train_low_dataset = RS_dataset(train, "low")
+    val_low_dataset = RS_dataset(val, "low")
+    test_low_dataset = RS_dataset(test, "low")
+
+    train_high_dataset = RS_dataset(train, "high")
+    val_high_dataset = RS_dataset(val, "high")
+    test_high_dataset = RS_dataset(test, "high")
 
     # 모델 로드
     vlm = pretrained_model(args.model)
@@ -193,7 +211,7 @@ def main(args):
         set_collate_fn = gemma_collate_fn
 
     low_loader = DataLoader(
-        low_dataset,
+        test_low_dataset,
         batch_size = args.batch,
         shuffle = False,
         num_workers = 4,
@@ -201,7 +219,7 @@ def main(args):
     )
 
     high_loader = DataLoader(
-        high_dataset,
+        test_high_dataset,
         batch_size = args.batch,
         shuffle = False,
         num_workers = 4,
@@ -216,6 +234,8 @@ def main(args):
 
         vlm.answer_dict[args.model]["low"].append(vlm.processor.batch_decode(gen_ids, skip_special_tokens=True))
 
+        break
+
     for batch_inputs, questions, answers in tqdm(high_loader, desc = f"{args.model} Inference (High Resolution)"):
         batch_inputs = {k: v.to(vlm.model.device) if hasattr(v, "to") else v
                         for k, v in batch_inputs.items()}
@@ -223,6 +243,8 @@ def main(args):
             gen_ids = vlm.model.generate(**batch_inputs, max_new_tokens=64)
 
         vlm.answer_dict[args.model]["high"].append(vlm.processor.batch_decode(gen_ids, skip_special_tokens=True))
+
+        break
 
     # 결과 저장
     os.makedirs("./results", exist_ok=True)
@@ -233,6 +255,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", type = str, required = True, default = "qwen")
     parser.add_argument("--batch", type = int, required = True, default = 32)
+    parser.add_argument("--seed", type = int, required = True, default = 42)
     args = parser.parse_args()
 
     main(args)

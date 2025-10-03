@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from torchvision.models import vit_b_32
+from torchvision.models import vit_b_32, ViT_B_32_Weights
 from transformers import RobertaModel
 
 class VisionTransformer(nn.Module):
@@ -11,7 +11,7 @@ class VisionTransformer(nn.Module):
     def __init__(self, embed_dim=512):
         super().__init__()
         # 사전 학습된 ViT-B/32 모델을 로드합니다.
-        self.model = vit_b_32(pretrained=True)
+        self.model = vit_b_32(weights = ViT_B_32_Weights.DEFAULT)
         # 원래의 분류 헤드를 Identity 함수로 교체하여 특징 추출기로 사용합니다.
         self.model.heads = nn.Identity()
         # ViT의 출력 차원(768)을 목표 임베딩 차원(embed_dim)으로 변환하는 선형 계층입니다.
