@@ -73,12 +73,13 @@ def qwen_collate_fn(batch, processor):
     # Qwen 메시지 포맷 구성
     messages_list = []
     for pil, q in zip(pil_images, questions):
+        user_text = f"{q}\nGive the answer in one sentence"
         messages_list.append([
             {
                 "role": "user",
                 "content": [
                     {"type": "image", "image": pil},
-                    {"type": "text",  "text": q},
+                    {"type": "text",  "text": user_text},
                 ],
             }
         ])
@@ -109,15 +110,16 @@ def llama_collate_fn(batch, processor):
     for q, a, img in batch:
         questions.append(q)
         answers.append(a)
-        pil_images.append(img)
+        pil_images.append([img])
 
     texts = []
     for q in questions:
+        user_text = f"{q} Give the answer in one sentence"
         messages = [
             {"role": "user",
              "content": [
                  {"type": "image"},                 # 실제 이미지는 images 인자로 전달
-                 {"type": "text", "text": q},
+                 {"type": "text", "text": user_text},
              ]}
         ]
         text = processor.apply_chat_template(
@@ -145,17 +147,18 @@ def gemma_collate_fn(batch, processor):
     for q, a, img in batch:
         questions.append(q)
         answers.append(a)
-        pil_images.append(img)
+        pil_images.append([img])
 
     texts = []
     for q in questions:
         # CORRECT: Structure content as a list of dictionaries
+        user_text = f"{q}\nGive the answer in one sentence"
         messages = [
             {
                 "role": "user", 
                 "content": [
                     {"type": "image"},
-                    {"type": "text", "text": q},
+                    {"type": "text", "text": user_text},
                 ]
             }
         ]

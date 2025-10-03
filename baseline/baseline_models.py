@@ -35,7 +35,7 @@ def qwen_vl():  # qwen_vl 함수 정의
     # 3) 모델 로드
     model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
         model_name,
-        torch_dtype="auto",
+        dtype="auto",
         device_map="auto",
         trust_remote_code=True,
     )
@@ -47,6 +47,8 @@ def qwen_vl():  # qwen_vl 함수 정의
     if hasattr(model, "generation_config") and model.generation_config.pad_token_id != pad_id:
         model.generation_config.pad_token_id = pad_id
 
+    model.eval()
+
     return model, processor  # 모델과 프로세서 반환
 
 def llama_vision(): # llama_vision 함수 정의
@@ -56,7 +58,7 @@ def llama_vision(): # llama_vision 함수 정의
 
     model_name = "meta-llama/Llama-3.2-90B-Vision-Instruct" # 모델 이름 설정
 
-    model = MllamaForConditionalGeneration.from_pretrained(model_name, torch_dtype = torch.bfloat16, device_map = "auto") # 사전 학습된 모델 로드
+    model = MllamaForConditionalGeneration.from_pretrained(model_name, dtype = torch.bfloat16, device_map = "auto").eval() # 사전 학습된 모델 로드
     processor = AutoProcessor.from_pretrained(model_name) # 사전 학습된 프로세서 로드
 
     return model, processor # 모델과 프로세서 반환
