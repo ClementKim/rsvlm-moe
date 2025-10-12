@@ -33,6 +33,9 @@ def rsvqa_all(dataset_dict):
                         for item in lst:
                             dataset_dict[resolution][item['question_id']]['answer'] = item['answer']
 
+    with open("dataset/json/rsvqa/dataset_dict.json", 'w') as f:
+        json.dump(dataset_dict, f)
+
     return dataset_dict
 
 def rsvqa_split(dataset_dict):
@@ -58,7 +61,7 @@ def rsvqa_split(dataset_dict):
     shuffle(low_ids)
     shuffle(high_ids)
 
-    train_rate, val_rate = len(low_ids) * 0.6, len(low_ids) * 0.2
+    train_rate, val_rate = len(low_ids) * 0.6, len(low_ids) * 0.3
     for idx, num in enumerate(low_ids, start = 1):
         if idx <= train_rate:
             train["low"][num] = dataset_dict['low'][num]

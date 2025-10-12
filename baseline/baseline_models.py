@@ -4,6 +4,7 @@ import torch
 from transformers import Qwen2_5_VLForConditionalGeneration # Qwen2.5-VL-72B-Instruct 모델용
 from transformers import MllamaForConditionalGeneration     # Llama-3.2-90B-Vision-Instruct 모델용
 from transformers import Gemma3ForConditionalGeneration     # gemma-3-27b-it 모델용
+from transformers import AutoProcessot, AutoModelForVision2Seq # BLIP2
 
 # processors
 from transformers import AutoProcessor # 자동 프로세서 임포트
@@ -74,3 +75,15 @@ def gemma(): # gemma 함수 정의
     processor = AutoProcessor.from_pretrained(model_name) # 사전 학습된 프로세서 로드
 
     return model, processor # 모델과 프로세서 반환
+
+def blip2():
+    '''
+    blip2 model
+    '''
+
+    model_name = "Salesforce/blip2-opt-2.7b"
+
+    model = AutoModelForVision2Seq.from_pretrained(model_name, dtype = torch.float16, device_map = "auto").eval()
+    processor = AutoProcessor.from_pretrained(model_name)
+
+    return model, processor
