@@ -32,7 +32,7 @@ class RS_dataset(Dataset):
         return question, answer, img
 
 class pretrained_model:
-    def __init__(self, model):
+    def __init__(self, model, param):
         self.answer_dict = {
             "qwen": {
                 "low": [],
@@ -53,15 +53,16 @@ class pretrained_model:
             }
 
         self.model = model
+        self.param = param
 
         if self.model == "qwen":
-            self.model, self.processor = baseline_models.qwen_vl()
+            self.model, self.processor = baseline_models.qwen_vl(param)
 
         elif self.model == "llama":
-            self.model, self.processor = baseline_models.llama_vision()
+            self.model, self.processor = baseline_models.llama_vision(param)
 
         elif self.model == "gemma":
-            self.model, self.processor = baseline_models.gemma()
+            self.model, self.processor = baseline_models.gemma(param)
 
         elif self.model == "blip2":
             self.model, self.processor = baseline_models.blip2()
@@ -81,7 +82,7 @@ def qwen_collate_fn(batch, processor):
     # Qwen 메시지 포맷 구성
     messages_list = []
     for pil, q in zip(pil_images, questions):
-        user_text = f"{q}\nGive the answer in one sentence"
+        user_text = f"{q}\nYou must give fianl answer in one sentence"
         messages_list.append([
             {
                 "role": "user",
@@ -122,7 +123,7 @@ def llama_collate_fn(batch, processor):
 
     texts = []
     for q in questions:
-        user_text = f"{q} Give the answer in one sentence"
+        user_text = f"{q} You must give fianl answer in one sentence."
         messages = [
             {"role": "user",
              "content": [
@@ -160,7 +161,7 @@ def gemma_collate_fn(batch, processor):
     texts = []
     for q in questions:
         # CORRECT: Structure content as a list of dictionaries
-        user_text = f"{q}\nGive the answer in one sentence"
+        user_text = f"{q} You must give fianl answer in one sentence."
         messages = [
             {
                 "role": "user", 
@@ -193,11 +194,12 @@ def blip2_collate_fn(batch, processor):
     
     texts = []
     for q in questions:
-        texts.append(f"{q}\nGive the answer in one sentence")
+        texts.append(f"{q} You must give fianl answer in one sentence.")
 
     inputs = processor(
         images = pil_images,
         text = texts,
+        padding = True,
         return_tensors = "pt"
     )
 
@@ -236,7 +238,7 @@ def main(args):
     test_high_dataset = RS_dataset(test, "high")
 
     # 모델 로드
-    vlm = pretrained_model(args.model)
+    vlm = pretrained_model(args.model, args.param)
     vlm.model.eval()
 
     if args.model == "qwen":
@@ -277,30 +279,41 @@ def main(args):
         batch_inputs = {k: v.to(vlm.model.device) if hasattr(v, "to") else v
                         for k, v in batch_inputs.items()}
         with torch.inference_mode():
-            gen_ids = vlm.model.generate(**batch_inputs,
+            gen_ids = vlm.model.generate(
+                **batch_inputs,
                 do_sample = False,
-                max_new_tokens=64)
+                max_new_tokens=4096)
 
         vlm.answer_dict[args.model]["low"].append(vlm.processor.batch_decode(gen_ids, skip_special_tokens=True))
 
+        break
+    
+    # 결과 저장 (low 우선 저장)
+    os.makedirs("./results", exist_ok=True)
+    with open(f"./results/{args.model}_{args.param}_results.json", "w") as f:
+        json.dump(vlm.answer_dict[args.model], f, indent=4)
+    
     for batch_inputs, questions, answers in tqdm(high_loader, desc = f"{args.model} Inference (High Resolution)"):
         batch_inputs = {k: v.to(vlm.model.device) if hasattr(v, "to") else v
                         for k, v in batch_inputs.items()}
         with torch.inference_mode():
-            gen_ids = vlm.model.generate(**batch_inputs,
+            gen_ids = vlm.model.generate(
+                **batch_inputs,
                 do_sample = False,
-                max_new_tokens=64)
+                max_new_tokens=4096)
 
         vlm.answer_dict[args.model]["high"].append(vlm.processor.batch_decode(gen_ids, skip_special_tokens=True))
 
-    # 결과 저장
-    os.makedirs("./results", exist_ok=True)
-    with open(f"./results/{args.model}_results.json", "w") as f:
+        break
+
+    # 결과 저장 (high 포함)
+    with open(f"./results/{args.model}_{args.param}_results.json", "w") as f:
         json.dump(vlm.answer_dict[args.model], f, indent=4)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--model", type = str, required = True, default = "qwen")
+    parser.add_argument("--param", type = int, required = False, default = None)
     parser.add_argument("--batch", type = int, required = True, default = 32)
     parser.add_argument("--seed", type = int, required = True, default = 42)
     args = parser.parse_args()

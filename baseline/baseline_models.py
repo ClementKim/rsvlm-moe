@@ -1,10 +1,10 @@
 import torch
 
 # models
-from transformers import Qwen2_5_VLForConditionalGeneration # Qwen2.5-VL-72B-Instruct 모델용
-from transformers import MllamaForConditionalGeneration     # Llama-3.2-90B-Vision-Instruct 모델용
-from transformers import Gemma3ForConditionalGeneration     # gemma-3-27b-it 모델용
-from transformers import AutoProcessot, AutoModelForVision2Seq # BLIP2
+from transformers import Qwen2_5_VLForConditionalGeneration # Qwen2.5-VL-Instruct 모델용
+from transformers import MllamaForConditionalGeneration     # Llama-3.2-Vision-Instruct 모델용
+from transformers import Gemma3ForConditionalGeneration     # gemma-3-it 모델용
+from transformers import AutoProcessor, AutoModelForImageTextToText # BLIP2
 
 # processors
 from transformers import AutoProcessor # 자동 프로세서 임포트
@@ -13,11 +13,19 @@ from transformers import AutoProcessor # 자동 프로세서 임포트
 from qwen_vl_utils import process_vision_info # qwen 비전-언어 유틸리티 임포트
 
 ## fucntions for models and processors
-def qwen_vl():  # qwen_vl 함수 정의
-    """
-    Qwen2.5-VL-72B-Instruct model
-    """
-    model_name = "Qwen/Qwen2.5-VL-72B-Instruct"
+def qwen_vl(param: int = 72):  # qwen_vl 함수 정의
+    
+    if param == 72:
+        model_name = "Qwen/Qwen2.5-VL-72B-Instruct"
+    
+    elif param == 32:
+        model_name = "Qwen/Qwen2.5-VL-32B-Instruct"
+
+    elif param == 7:
+        model_name = "Qwen/Qwen2.5-VL-7B-Instruct"
+
+    elif param == 3:
+        model_name = "Qwen/Qwen2.5-VL-3B-Instruct"
 
     # 1) Processor 먼저 로드
     processor = AutoProcessor.from_pretrained(
@@ -52,24 +60,31 @@ def qwen_vl():  # qwen_vl 함수 정의
 
     return model, processor  # 모델과 프로세서 반환
 
-def llama_vision(): # llama_vision 함수 정의
-    '''
-    Llama-3.2-90B-Vision-Instruct model
-    '''
+def llama_vision(param : int = 90): # llama_vision 함수 정의
+    if param == 90:
+        model_name = "meta-llama/Llama-3.2-90B-Vision-Instruct" # 모델 이름 설정
 
-    model_name = "meta-llama/Llama-3.2-90B-Vision-Instruct" # 모델 이름 설정
+    elif param == 11:
+        model_name = "meta-llama/Llama-3.2-11B-Vision-Instruct"
 
     model = MllamaForConditionalGeneration.from_pretrained(model_name, dtype = torch.bfloat16, device_map = "auto").eval() # 사전 학습된 모델 로드
     processor = AutoProcessor.from_pretrained(model_name) # 사전 학습된 프로세서 로드
 
     return model, processor # 모델과 프로세서 반환
 
-def gemma(): # gemma 함수 정의
+def gemma(param : int = 27): # gemma 함수 정의
     '''
     gemma-3-27b-it model
     '''
 
-    model_name = "google/gemma-3-27b-it" # 모델 이름 설정
+    if param == 27:
+        model_name = "google/gemma-3-27b-it" # 모델 이름 설정
+
+    elif param == 12:
+        model_name = "google/gemma-3-12b-it"
+
+    elif param == 4:
+        model_name = "google/gemma-3-4b-it"
 
     model = Gemma3ForConditionalGeneration.from_pretrained(model_name, device_map = "auto").eval() # 사전 학습된 모델 로드 후 평가 모드로 설정
     processor = AutoProcessor.from_pretrained(model_name) # 사전 학습된 프로세서 로드
@@ -83,7 +98,7 @@ def blip2():
 
     model_name = "Salesforce/blip2-opt-2.7b"
 
-    model = AutoModelForVision2Seq.from_pretrained(model_name, dtype = torch.float16, device_map = "auto").eval()
+    model = AutoModelForImageTextToText.from_pretrained(model_name, dtype = torch.float16, device_map = "auto").eval()
     processor = AutoProcessor.from_pretrained(model_name)
 
     return model, processor

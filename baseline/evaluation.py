@@ -7,7 +7,7 @@ def ExtractResponse(dir : str) -> list:
 
     return answer
 
-def main(None) -> None:
+def main() -> None:
     pass
 
 if __name__ == "__main__":
