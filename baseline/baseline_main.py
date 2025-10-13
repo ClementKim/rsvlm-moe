@@ -190,11 +190,11 @@ def blip2_collate_fn(batch, processor):
     for q, a, img in batch:
         questions.append(q)
         answers.append(a)
-        pil_images.append([img])
+        pil_images.append(img)
     
     texts = []
     for q in questions:
-        texts.append(f"{q} You must give fianl answer in one sentence.")
+        texts.append(f"Question: {q} You must give fianl answer in one sentence.\nAnswer:")
 
     inputs = processor(
         images = pil_images,
@@ -279,10 +279,22 @@ def main(args):
         batch_inputs = {k: v.to(vlm.model.device) if hasattr(v, "to") else v
                         for k, v in batch_inputs.items()}
         with torch.inference_mode():
-            gen_ids = vlm.model.generate(
-                **batch_inputs,
-                do_sample = False,
-                max_new_tokens=4096)
+            if args.model == "blip2":
+                gen_ids = vlm.model.generate(
+                    **batch_inputs,
+                    do_sample = True,
+                    max_new_tokens = 4096,
+                    min_new_tokens = 10,
+                    temperature = 1.0
+                )
+
+            else:
+                gen_ids = vlm.model.generate(
+                    **batch_inputs,
+                    do_sample = False,
+                    max_new_tokens=4096,
+                    min_new_tokens=10,
+                    temperature=1.0)
 
         vlm.answer_dict[args.model]["low"].append(vlm.processor.batch_decode(gen_ids, skip_special_tokens=True))
 
@@ -297,10 +309,22 @@ def main(args):
         batch_inputs = {k: v.to(vlm.model.device) if hasattr(v, "to") else v
                         for k, v in batch_inputs.items()}
         with torch.inference_mode():
-            gen_ids = vlm.model.generate(
-                **batch_inputs,
-                do_sample = False,
-                max_new_tokens=4096)
+            if args.model == "blip2":
+                gen_ids = vlm.model.generate(
+                    **batch_inputs,
+                    do_sample = True,
+                    max_new_tokens = 4096,
+                    min_new_tokens = 10,
+                    temperature = 1.0
+                )
+                
+            else:
+                gen_ids = vlm.model.generate(
+                    **batch_inputs,
+                    do_sample = False,
+                    max_new_tokens=4096,
+                    min_new_tokens=10,
+                    temperature=1.0)
 
         vlm.answer_dict[args.model]["high"].append(vlm.processor.batch_decode(gen_ids, skip_special_tokens=True))
 

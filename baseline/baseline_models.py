@@ -101,4 +101,11 @@ def blip2():
     model = AutoModelForImageTextToText.from_pretrained(model_name, dtype = torch.float16, device_map = "auto").eval()
     processor = AutoProcessor.from_pretrained(model_name)
 
+    tok = processor.tokenizer
+    if tok.pad_token_id is None and tok.eos_token_id is not None:
+        tok.pad_token = tok.eos_token
+
+    if getattr(model.config, "pad_token_id", None) != tok.pad_token_id:
+        model.config.pad_token_id = tok.pad_token_id
+
     return model, processor
