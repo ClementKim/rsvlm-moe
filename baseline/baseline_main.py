@@ -297,8 +297,6 @@ def main(args):
                     temperature=1.0)
 
         vlm.answer_dict[args.model]["low"].append(vlm.processor.batch_decode(gen_ids, skip_special_tokens=True))
-
-        break
     
     # 결과 저장 (low 우선 저장)
     os.makedirs("./results", exist_ok=True)
