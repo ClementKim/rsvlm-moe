@@ -10,6 +10,7 @@ from PIL import Image
 # local modules
 import baseline_models
 import preprocessing
+import evaluation
 
 # qwen vision-language utils
 from qwen_vl_utils import process_vision_info
@@ -237,100 +238,114 @@ def main(args):
     val_high_dataset = RS_dataset(val, "high")
     test_high_dataset = RS_dataset(test, "high")
 
-    # 모델 로드
-    vlm = pretrained_model(args.model, args.param)
-    vlm.model.eval()
+    if not (args.eval):
+        # 모델 로드
+        vlm = pretrained_model(args.model, args.param)
+        vlm.model.eval()
 
-    if args.model == "qwen":
-        set_collate_fn = qwen_collate_fn
+        if args.model == "qwen":
+            set_collate_fn = qwen_collate_fn
 
-    elif args.model == "llama":
-        set_collate_fn = llama_collate_fn
+        elif args.model == "llama":
+            set_collate_fn = llama_collate_fn
 
-    elif args.model == "gemma":
-        set_collate_fn = gemma_collate_fn
+        elif args.model == "gemma":
+            set_collate_fn = gemma_collate_fn
 
-    elif args.model == "blip2":
-        set_collate_fn = blip2_collate_fn
+        elif args.model == "blip2":
+            set_collate_fn = blip2_collate_fn
 
-    low_loader = DataLoader(
-        test_low_dataset,
-        batch_size = args.batch,
-        shuffle = False,
-        num_workers = 4,
-        pin_memory = True,
-        persistent_workers = True,
-        prefetch_factor = 4,
-        collate_fn = partial(set_collate_fn, processor = vlm.processor)
-    )
+        low_loader = DataLoader(
+            test_low_dataset,
+            batch_size = args.batch,
+            shuffle = False,
+            num_workers = 4,
+            pin_memory = True,
+            persistent_workers = True,
+            prefetch_factor = 4,
+            collate_fn = partial(set_collate_fn, processor = vlm.processor)
+        )
 
-    high_loader = DataLoader(
-        test_high_dataset,
-        batch_size = args.batch,
-        shuffle = False,
-        num_workers = 4,
-        pin_memory = True,
-        persistent_workers = True,
-        prefetch_factor = 4,
-        collate_fn = partial(set_collate_fn, processor = vlm.processor)
-    )
+        high_loader = DataLoader(
+            test_high_dataset,
+            batch_size = args.batch,
+            shuffle = False,
+            num_workers = 4,
+            pin_memory = True,
+            persistent_workers = True,
+            prefetch_factor = 4,
+            collate_fn = partial(set_collate_fn, processor = vlm.processor)
+        )
 
-    for batch_inputs, questions, answers in tqdm(low_loader, desc = f"{args.model} Inference (Low Resolution)"):
-        batch_inputs = {k: v.to(vlm.model.device) if hasattr(v, "to") else v
-                        for k, v in batch_inputs.items()}
-        with torch.inference_mode():
-            if args.model == "blip2":
-                gen_ids = vlm.model.generate(
-                    **batch_inputs,
-                    do_sample = True,
-                    max_new_tokens = 4096,
-                    min_new_tokens = 10,
-                    temperature = 1.0
-                )
+        for batch_inputs, questions, answers in tqdm(low_loader, desc = f"{args.model} Inference (Low Resolution)"):
+            batch_inputs = {k: v.to(vlm.model.device) if hasattr(v, "to") else v
+                            for k, v in batch_inputs.items()}
+            with torch.inference_mode():
+                if args.model == "blip2":
+                    gen_ids = vlm.model.generate(
+                        **batch_inputs,
+                        do_sample = True,
+                        max_new_tokens = 4096,
+                        min_new_tokens = 10,
+                        temperature = 1.0
+                    )
 
-            else:
-                gen_ids = vlm.model.generate(
-                    **batch_inputs,
-                    do_sample = False,
-                    max_new_tokens=4096,
-                    min_new_tokens=10,
-                    temperature=1.0)
+                else:
+                    gen_ids = vlm.model.generate(
+                        **batch_inputs,
+                        do_sample = False,
+                        max_new_tokens=4096,
+                        min_new_tokens=10,
+                        temperature=1.0)
 
-        vlm.answer_dict[args.model]["low"].append(vlm.processor.batch_decode(gen_ids, skip_special_tokens=True))
-    
-    # 결과 저장 (low 우선 저장)
-    os.makedirs("./results", exist_ok=True)
-    with open(f"./results/{args.model}_{args.param}_results.json", "w") as f:
-        json.dump(vlm.answer_dict[args.model], f, indent=4)
-    
-    for batch_inputs, questions, answers in tqdm(high_loader, desc = f"{args.model} Inference (High Resolution)"):
-        batch_inputs = {k: v.to(vlm.model.device) if hasattr(v, "to") else v
-                        for k, v in batch_inputs.items()}
-        with torch.inference_mode():
-            if args.model == "blip2":
-                gen_ids = vlm.model.generate(
-                    **batch_inputs,
-                    do_sample = True,
-                    max_new_tokens = 4096,
-                    min_new_tokens = 10,
-                    temperature = 1.0
-                )
-                
-            else:
-                gen_ids = vlm.model.generate(
-                    **batch_inputs,
-                    do_sample = False,
-                    max_new_tokens=4096,
-                    min_new_tokens=10,
-                    temperature=1.0)
+            vlm.answer_dict[args.model]["low"].append(vlm.processor.batch_decode(gen_ids, skip_special_tokens=True))
+        
+        # 결과 저장 (low 우선 저장)
+        os.makedirs("./results", exist_ok=True)
+        with open(f"./results/{args.model}_{args.param}_results.json", "w") as f:
+            json.dump(vlm.answer_dict[args.model], f, indent=4)
+        
+        for batch_inputs, questions, answers in tqdm(high_loader, desc = f"{args.model} Inference (High Resolution)"):
+            batch_inputs = {k: v.to(vlm.model.device) if hasattr(v, "to") else v
+                            for k, v in batch_inputs.items()}
+            with torch.inference_mode():
+                if args.model == "blip2":
+                    gen_ids = vlm.model.generate(
+                        **batch_inputs,
+                        do_sample = True,
+                        max_new_tokens = 4096,
+                        min_new_tokens = 10,
+                        temperature = 1.0
+                    )
+                    
+                else:
+                    gen_ids = vlm.model.generate(
+                        **batch_inputs,
+                        do_sample = False,
+                        max_new_tokens=4096,
+                        min_new_tokens=10,
+                        temperature=1.0)
 
-        vlm.answer_dict[args.model]["high"].append(vlm.processor.batch_decode(gen_ids, skip_special_tokens=True))
+            vlm.answer_dict[args.model]["high"].append(vlm.processor.batch_decode(gen_ids, skip_special_tokens=True))
 
-        break
+            break
 
-    # 결과 저장 (high 포함)
-    with open(f"./results/{args.model}_{args.param}_results.json", "w") as f:
-        json.dump(vlm.answer_dict[args.model], f, indent=4)
+        # 결과 저장 (high 포함)
+        with open(f"./results/{args.model}_{args.param}_results.json", "w") as f:
+            json.dump(vlm.answer_dict[args.model], f, indent=4)
+
+    torch.cuda.empty_cache()
+
+    low_answer, high_answer = evaluation.ExtractResponse(args.model, str(args.param))
+    low_reference, high_reference = evaluation.ExtractReference(test)
+    precision_low, recall_low, f1_low = evaluation.bert_score(low_reference, low_answer, device)
+    bleu = evaluation.bleu_score(low_reference, low_answer)
+    rouge = evaluation.rouge_score(low_reference, low_answer)
+    meteor = evaluation.meteor_score(low_reference, low_answer)
+    print(f"{args.model} [Low Resolution] BERTScore - Precision: {precision_low:.4f}, Recall: {recall_low:.4f}, F1: {f1_low:.4f}")
+    print(f"{args.model} [Low Resolution] BLEU Score: {bleu:.4f}")
+    print(f"{args.model} [Low Resolution] ROUGE Score: {rouge}")
+    print(f"{args.model} [Low Resolution] METEOR Score: {meteor}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -338,6 +353,7 @@ if __name__ == "__main__":
     parser.add_argument("--param", type = int, required = False, default = None)
     parser.add_argument("--batch", type = int, required = True, default = 32)
     parser.add_argument("--seed", type = int, required = True, default = 42)
+    parser.add_argument("--eval", type = bool, required = True, default = True)
     args = parser.parse_args()
 
     main(args)
