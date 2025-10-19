@@ -77,7 +77,7 @@ def bert_score(references : list, candidates : list, device):
     results = bertscore.compute(predictions=candidates,
                                 references=references,
                                 lang="en",
-                                model_type = "microsoft/deberta-xlarge-mnli",
+                                model_type = "roberta-large-mnli",
                                 device = device,
                                 idf = True)
 

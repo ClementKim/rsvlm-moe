@@ -5,6 +5,7 @@ from transformers import Qwen2_5_VLForConditionalGeneration # Qwen2.5-VL-Instruc
 from transformers import MllamaForConditionalGeneration     # Llama-3.2-Vision-Instruct 모델용
 from transformers import Gemma3ForConditionalGeneration     # gemma-3-it 모델용
 from transformers import AutoProcessor, AutoModelForImageTextToText # BLIP2
+from transformers import InstructBlipProcessor, InstructBlipForConditionalGeneration # InstructBLIP
 
 # processors
 from transformers import AutoProcessor # 자동 프로세서 임포트
@@ -100,6 +101,19 @@ def blip2():
 
     model = AutoModelForImageTextToText.from_pretrained(model_name, dtype = torch.float16, device_map = "auto").eval()
     processor = AutoProcessor.from_pretrained(model_name)
+
+    tok = processor.tokenizer
+    if tok.pad_token_id is None and tok.eos_token_id is not None:
+        tok.pad_token = tok.eos_token
+
+    if getattr(model.config, "pad_token_id", None) != tok.pad_token_id:
+        model.config.pad_token_id = tok.pad_token_id
+
+    return model, processor
+
+def instructBLIP():
+    model = InstructBlipForConditionalGeneration.from_pretrained("Salesforce/instructblip-flan-t5-xxl")
+    processor = InstructBlipProcessor.from_pretrained("Salesforce/instructblip-flan-t5-xxl")
 
     tok = processor.tokenizer
     if tok.pad_token_id is None and tok.eos_token_id is not None:

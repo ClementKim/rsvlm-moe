@@ -3,4 +3,6 @@ __pycache__
 vlm.zip
 .vscode
 rsvqa
-results
+baseline/GeoChat
+baseline/MiniGPT-4
+llm

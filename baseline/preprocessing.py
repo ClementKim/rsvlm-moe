@@ -83,4 +83,14 @@ def rsvqa_split(dataset_dict):
         elif idx > train_rate + val_rate:
             test["high"][num] = dataset_dict['high'][num]
 
+    save_dir = "dataset/json/rsvqa"
+    with open(f"{save_dir}/train.json", "w") as f:
+        json.dump(train, f, indent = 4)
+
+    with open(f"{save_dir}/val.json", "w") as f:
+        json.dump(val, f, indent = 4)
+
+    with open(f"{save_dir}/test.json", "w") as f:
+        json.dump(test, f, indent = 4)
+
     return train, val, test
