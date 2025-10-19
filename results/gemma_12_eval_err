@@ -1,0 +1,21 @@
+Traceback (most recent call last):
+  File "/home/jovyan/js_data/rsvlm/baseline/baseline_main.py", line 430, in <module>
+    main(args)
+  File "/home/jovyan/js_data/rsvlm/baseline/baseline_main.py", line 395, in main
+    precision_low, recall_low, f1_low = evaluation.bert_score(low_reference, low_answer, device)
+                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jovyan/js_data/rsvlm/baseline/evaluation.py", line 77, in bert_score
+    results = bertscore.compute(predictions=candidates,
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jovyan/js_data/rsvlm/.venv/lib/python3.11/site-packages/evaluate/module.py", line 455, in compute
+    self.add_batch(**inputs)
+  File "/home/jovyan/js_data/rsvlm/.venv/lib/python3.11/site-packages/evaluate/module.py", line 514, in add_batch
+    self.selected_feature_format = self._infer_feature_from_batch(batch)
+                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jovyan/js_data/rsvlm/.venv/lib/python3.11/site-packages/evaluate/module.py", line 595, in _infer_feature_from_batch
+    example = dict([(k, v[0]) for k, v in batch.items()])
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/jovyan/js_data/rsvlm/.venv/lib/python3.11/site-packages/evaluate/module.py", line 595, in <listcomp>
+    example = dict([(k, v[0]) for k, v in batch.items()])
+                        ~^^^
+IndexError: list index out of range
