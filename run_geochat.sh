@@ -1,13 +1,16 @@
 #!/bin/bash
 
 conda activate geochat
+
+python3 baseline/geochat_preprocessing.py
+
 cd baseline/GeoChat
 
-python3 geochat/eval/batch_geochat_vqa.py --model-path MBZUAI/geochat-7B --question-file ~/js_data/rsvlm/dataset/json/rsvqa/test_low.json --answer-file results/geochat-low.json
-python3 geochat/eval/batch_geochat_vqa.py --model-path MBZUAI/geochat-7B --question-file ~/js_data/rsvlm/dataset/json/rsvqa/test_high.json --answer-file results/geochat-high.json
+python3 geochat/eval/batch_geochat_vqa.py --model-path MBZUAI/geochat-7B --question-file /mnt/d/eccv26/dataset/json/rsvqa/test_low.json --answers-file /mnt/d/eccv26/results/geochat-low.json
+python3 geochat/eval/batch_geochat_vqa.py --model-path MBZUAI/geochat-7B --question-file /mnt/d/eccv26/dataset/json/rsvqa/test_high.json --answers-file /mnt/d/eccv26/results/geochat-high.json
 
 cd ../..
 
 conda deactivate
 
-source .venv/bin/activate
+# source .venv/bin/activate

@@ -335,9 +335,9 @@ def main(args):
                         temperature=1.0)
             
             if args.model == "instructblip":
-                vlm.answer_dict[args.model]["high"].append(vlm.processor.batch_decode(gen_ids, skip_special_tokens = True)[0].strip())
+                vlm.answer_dict[args.model]["low"].append(vlm.processor.batch_decode(gen_ids, skip_special_tokens = True)[0].strip())
             else:
-                vlm.answer_dict[args.model]["high"].append(vlm.processor.batch_decode(gen_ids, skip_special_tokens=True))
+                vlm.answer_dict[args.model]["low"].append(vlm.processor.batch_decode(gen_ids, skip_special_tokens=True))
         
         # 결과 저장 (low 우선 저장)
         os.makedirs("./results", exist_ok=True)

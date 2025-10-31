@@ -3,6 +3,7 @@ import json
 
 def main():
     base_dir = "dataset/json/rsvqa"
+
     for ty in ["train", "val", "test"]:
         low_temp_list = []
         high_temp_list = []
