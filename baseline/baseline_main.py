@@ -38,6 +38,7 @@ def main(args):
     args.train = str_to_bool(args.train)
     args.val = str_to_bool(args.val)
     args.test = str_to_bool(args.test)
+    args.eval = str_to_bool(args.eval)
 
     vlm = initialize_model(args)
 
@@ -54,6 +55,7 @@ if __name__ == "__main__":
     parser.add_argument("--train", type = str, default = "False")
     parser.add_argument("--val", type = str, default = "False")
     parser.add_argument("--test", type = str, default = "True")
+    parser.add_argument("--eval", type = str, default = "False")
     args = parser.parse_args()
 
     main(args)

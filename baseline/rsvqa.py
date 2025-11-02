@@ -91,55 +91,57 @@ def rsvqa_main(args, vlm, device):
     # Load datasets
     low_dataset, high_dataset, full_dataset = rsvqa_dataset(args)
 
-    answer_dict = {
-        "low": [],
-        "high": []
-    }
-    
-    for dataset in [low_dataset, high_dataset]:
-        data_loader = loader(args, dataset, vlm.collate_fn, vlm.processor)
+    if args.eval:
+        evaluation_main(args, device, full_dataset)
 
-        for batch_inputs, questions, answers in tqdm(data_loader, desc = f"{args.model} Inference (Low Resolution)"):
-            batch_inputs = {k: v.to(vlm.model.device) if hasattr(v, "to") else v
-                            for k, v in batch_inputs.items()}
-            with torch.inference_mode():
-                if args.model == "blip2":
-                    gen_ids = vlm.model.generate(
-                        **batch_inputs,
-                        do_sample = True,
-                        max_new_tokens = 4096,
-                        min_new_tokens = 10,
-                        temperature = 1.0
-                    )
-
-                elif args.model == "instructblip":
-                    gen_ids = vlm.model.generate(
-                        **batch_inputs,
-                        do_sample = False,
-                        num_beams = 5,
-                        max_length = 256,
-                        min_length = 10,
-                        top_p = 0.9,
-                        repetition_penalty = 1.5,
-                        length_penalty = 1.0,
-                        temperature = 1.0
-                    )
-                    
-                else:
-                    gen_ids = vlm.model.generate(
-                        **batch_inputs,
-                        do_sample = False,
-                        max_new_tokens=4096,
-                        min_new_tokens=10,
-                        temperature=1.0)
-                    
-            if args.model == "instructblip":
-                answer_dict["low"].append(vlm.processor.batch_decode(gen_ids, skip_special_tokens = True)[0].strip())
-            else:
-                answer_dict["low"].append(vlm.processor.batch_decode(gen_ids, skip_special_tokens=True))
+    elif not (args.eval):
+        answer_dict = {
+            "low": [],
+            "high": []
+        }
         
-        os.makedirs("./results", exist_ok=True)
-        with open(f"./results/{args.model}_{args.param}_results.json", "w") as f:
-            json.dump(answer_dict[args.model], f, indent=4)
+        for dataset in [low_dataset, high_dataset]:
+            data_loader = loader(args, dataset, vlm.collate_fn, vlm.processor)
 
-    evaluation_main(args, device, full_dataset)
+            for batch_inputs, questions, answers in tqdm(data_loader, desc = f"{args.model} Inference (Low Resolution)"):
+                batch_inputs = {k: v.to(vlm.model.device) if hasattr(v, "to") else v
+                                for k, v in batch_inputs.items()}
+                with torch.inference_mode():
+                    if args.model == "blip2":
+                        gen_ids = vlm.model.generate(
+                            **batch_inputs,
+                            do_sample = True,
+                            max_new_tokens = 4096,
+                            min_new_tokens = 10,
+                            temperature = 1.0
+                        )
+
+                    elif args.model == "instructblip":
+                        gen_ids = vlm.model.generate(
+                            **batch_inputs,
+                            do_sample = False,
+                            num_beams = 5,
+                            max_length = 256,
+                            min_length = 10,
+                            top_p = 0.9,
+                            repetition_penalty = 1.5,
+                            length_penalty = 1.0,
+                            temperature = 1.0
+                        )
+                        
+                    else:
+                        gen_ids = vlm.model.generate(
+                            **batch_inputs,
+                            do_sample = False,
+                            max_new_tokens=4096,
+                            min_new_tokens=10,
+                            temperature=1.0)
+                        
+                if args.model == "instructblip":
+                    answer_dict["low"].append(vlm.processor.batch_decode(gen_ids, skip_special_tokens = True)[0].strip())
+                else:
+                    answer_dict["low"].append(vlm.processor.batch_decode(gen_ids, skip_special_tokens=True))
+            
+            os.makedirs("./results", exist_ok=True)
+            with open(f"./results/{args.model}_{args.param}_results.json", "w") as f:
+                json.dump(answer_dict[args.model], f, indent=4)

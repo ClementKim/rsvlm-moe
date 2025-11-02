@@ -15,7 +15,7 @@ def qwen_collate_fn(batch, processor):
     # Qwen 메시지 포맷 구성
     messages_list = []
     for pil, q in zip(pil_images, questions):
-        user_text = f"{q}\nYou must give fianl answer in one sentence"
+        user_text = f"{q}\nYou must give final answer in one sentence"
         messages_list.append([
             {
                 "role": "user",
@@ -56,7 +56,7 @@ def llama_collate_fn(batch, processor):
 
     texts = []
     for q in questions:
-        user_text = f"{q} You must give fianl answer in one sentence."
+        user_text = f"{q} You must give final answer in one sentence."
         messages = [
             {"role": "user",
              "content": [
@@ -94,7 +94,7 @@ def gemma_collate_fn(batch, processor):
     texts = []
     for q in questions:
         # CORRECT: Structure content as a list of dictionaries
-        user_text = f"{q} You must give fianl answer in one sentence."
+        user_text = f"{q} You must give final answer in one sentence."
         messages = [
             {
                 "role": "user", 
@@ -127,7 +127,7 @@ def blip2_collate_fn(batch, processor):
     
     texts = []
     for q in questions:
-        texts.append(f"Question: {q} You must give fianl answer in one sentence.\nAnswer:")
+        texts.append(f"Question: {q} You must give final answer in one sentence.\nAnswer:")
 
     inputs = processor(
         images = pil_images,
