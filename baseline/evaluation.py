@@ -89,6 +89,7 @@ def bert_score(references : list, candidates : list, device):
 
 def main() -> None:
     nltk.download('punkt_tab')
+    nltk.download('punkt')
 
 if __name__ == "__main__":
     main()

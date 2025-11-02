@@ -2,7 +2,7 @@
 
 export CUDA_VISIBLE_DEVICES=0
 
-BATCH=16
+BATCH=32
 SEED=42
 
 source .venv/bin/activate
