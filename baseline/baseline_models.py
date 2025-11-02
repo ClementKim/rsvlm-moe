@@ -13,20 +13,21 @@ from transformers import AutoProcessor # 자동 프로세서 임포트
 # qwen vision language utils
 from qwen_vl_utils import process_vision_info # qwen 비전-언어 유틸리티 임포트
 
+from collate_fn import (qwen_collate_fn,
+                        llama_collate_fn,
+                        gemma_collate_fn,
+                        blip2_collate_fn)
+
 ## fucntions for models and processors
 def qwen_vl(param: int = 72):  # qwen_vl 함수 정의
-    
-    if param == 72:
-        model_name = "Qwen/Qwen2.5-VL-72B-Instruct"
-    
-    elif param == 32:
-        model_name = "Qwen/Qwen2.5-VL-32B-Instruct"
+    dict = {
+        3: "Qwen/Qwen2.5-VL-3B-Instruct",
+        7: "Qwen/Qwen2.5-VL-7B-Instruct",
+        32: "Qwen/Qwen2.5-VL-32B-Instruct",
+        72: "Qwen/Qwen2.5-VL-72B-Instruct"
+    }
 
-    elif param == 7:
-        model_name = "Qwen/Qwen2.5-VL-7B-Instruct"
-
-    elif param == 3:
-        model_name = "Qwen/Qwen2.5-VL-3B-Instruct"
+    model_name = dict[param]
 
     # 1) Processor 먼저 로드
     processor = AutoProcessor.from_pretrained(
@@ -62,11 +63,12 @@ def qwen_vl(param: int = 72):  # qwen_vl 함수 정의
     return model, processor  # 모델과 프로세서 반환
 
 def llama_vision(param : int = 90): # llama_vision 함수 정의
-    if param == 90:
-        model_name = "meta-llama/Llama-3.2-90B-Vision-Instruct" # 모델 이름 설정
-
-    elif param == 11:
-        model_name = "meta-llama/Llama-3.2-11B-Vision-Instruct"
+    dict = {
+        11: "meta-llama/Llama-3.2-11B-Vision-Instruct",
+        90: "meta-llama/Llama-3.2-90B-Vision-Instruct"
+    }
+    
+    model_name = dict[param]
 
     model = MllamaForConditionalGeneration.from_pretrained(model_name, dtype = torch.bfloat16, device_map = "auto").eval() # 사전 학습된 모델 로드
     processor = AutoProcessor.from_pretrained(model_name) # 사전 학습된 프로세서 로드
@@ -74,29 +76,20 @@ def llama_vision(param : int = 90): # llama_vision 함수 정의
     return model, processor # 모델과 프로세서 반환
 
 def gemma(param : int = 27): # gemma 함수 정의
-    '''
-    gemma-3-27b-it model
-    '''
+    dict = {
+        27: "google/gemma-3-27b-it",
+        12: "google/gemma-3-12b-it",
+        4: "google/gemma-3-4b-it"
+    }
 
-    if param == 27:
-        model_name = "google/gemma-3-27b-it" # 모델 이름 설정
-
-    elif param == 12:
-        model_name = "google/gemma-3-12b-it"
-
-    elif param == 4:
-        model_name = "google/gemma-3-4b-it"
+    model_name = dict[param]
 
     model = Gemma3ForConditionalGeneration.from_pretrained(model_name, device_map = "auto").eval() # 사전 학습된 모델 로드 후 평가 모드로 설정
     processor = AutoProcessor.from_pretrained(model_name) # 사전 학습된 프로세서 로드
 
     return model, processor # 모델과 프로세서 반환
 
-def blip2():
-    '''
-    blip2 model
-    '''
-
+def blip2(param):
     model_name = "Salesforce/blip2-opt-2.7b"
 
     model = AutoModelForImageTextToText.from_pretrained(model_name, dtype = torch.float16, device_map = "auto").eval()
@@ -123,3 +116,33 @@ def instructBLIP():
         model.config.pad_token_id = tok.pad_token_id
 
     return model, processor
+
+class pretrained_model:
+    def __init__(self, model_name, param):
+        self.collate_fn_map = {
+            "qwen": qwen_collate_fn,
+            "llama": llama_collate_fn,
+            "gemma": gemma_collate_fn,
+            "blip2": blip2_collate_fn,
+        }
+
+        self.model_map = {
+            "qwen": qwen_vl,
+            "llama": llama_vision,
+            "gemma": gemma,
+            "blip2": blip2,
+        }
+
+        self.model_name = model_name
+        self.param = param
+
+        try:
+            self.model, self.processor = self.model_map[self.model_name](self.param)
+        except:
+            raise ValueError(f"Model '{self.model_name}' with param '{self.param}' is not supported.")
+
+        self.model.eval()
+        self.collate_fn = self.collate_fn_map[self.model_name]
+
+def initialize_model(args):
+    return pretrained_model(args.model, args.param)

@@ -87,6 +87,37 @@ def bert_score(references : list, candidates : list, device):
 
     return precision, recall, f1
 
+def evaluation_main(args, device, test):
+    low_answer, high_answer = ExtractResponse(args.model, str(args.param))
+    low_reference, high_reference = ExtractReference(test)
+
+    # Bert Score
+    precision_low, recall_low, f1_low = bert_score(low_reference, low_answer, device)
+    precision_high, recall_high, f1_high = bert_score(high_reference, high_answer, device)
+
+    # Bleu score
+    bleu_low = bleu_score(low_reference, low_answer)
+    bleu_high = bleu_score(high_reference, high_answer)
+
+    # Rouge score
+    rouge_low = rouge_score(low_reference, low_answer)
+    rouge_high = rouge_score(high_reference, high_answer)
+
+    # Meteor score
+    meteor_low = meteor_score(low_reference, low_answer)
+    meteor_high = meteor_score(high_reference, high_answer)
+
+    # print results
+    print(f"{args.model} [Low Resolution] BERTScore - Precision: {precision_low:.4f}, Recall: {recall_low:.4f}, F1: {f1_low:.4f}")
+    print(f"{args.model} [Low Resolution] BLEU Score: {bleu_low:.4f}")
+    print(f"{args.model} [Low Resolution] ROUGE Score: {rouge_low}")
+    # print(f"{args.model} [Low Resolution] METEOR Score: {meteor_low}")
+
+    print(f"{args.model} [High Resolution] BERTScore - Precision: {precision_high:.4f}, Recall: {recall_high:.4f}, F1: {f1_high:.4f}")
+    print(f"{args.model} [High Resolution] BLEU Score: {bleu_high:.4f}")
+    print(f"{args.model} [High Resolution] ROUGE Score: {rouge_high}")
+    # print(f"{args.model} [High Resolution] METEOR Score: {meteor_high}")
+
 def main() -> None:
     nltk.download('punkt_tab')
     nltk.download('punkt')
