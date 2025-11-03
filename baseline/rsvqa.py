@@ -75,8 +75,13 @@ def rsvqa_dataset(args):
     val_high_dataset = RS_dataset(val, "high")
     test_high_dataset = RS_dataset(test, "high")
 
-    return train_low_dataset, train_high_dataset, train if args.train else val_low_dataset, val_high_dataset, val if val else test_low_dataset, test_high_dataset, test
-
+    if args.train:
+        return train_low_dataset, train_high_dataset, train
+    elif args.val:
+        return val_low_dataset, val_high_dataset, val
+    elif args.test:
+        return test_low_dataset, test_high_dataset, test
+    
 def rsvqa_main(args, vlm, device):
     # control randomness
     seed = args.seed
@@ -103,17 +108,26 @@ def rsvqa_main(args, vlm, device):
         for dataset in [low_dataset, high_dataset]:
             data_loader = loader(args, dataset, vlm.collate_fn, vlm.processor)
 
-            for batch_inputs, questions, answers in tqdm(data_loader, desc = f"{args.model} Inference (Low Resolution)"):
+            if dataset == low_dataset:
+                data_type = "low"
+            else:
+                data_type = "high"
+
+            for batch_inputs, questions, answers in tqdm(data_loader, desc = f"{args.model} Inference ({dataset})"):
                 batch_inputs = {k: v.to(vlm.model.device) if hasattr(v, "to") else v
                                 for k, v in batch_inputs.items()}
                 with torch.inference_mode():
                     if args.model == "blip2":
+                        input_len = batch_inputs["input_ids"].shape[-1] if "input_ids" in batch_inputs else 0
+                        max_pos = getattr(vlm.model.config, "max_position_embeddings", 2048)
+                        headroom = max_pos - input_len
+                        safe_new_tokens = max(1, min(64, headroom - 1))
+
                         gen_ids = vlm.model.generate(
                             **batch_inputs,
-                            do_sample = True,
-                            max_new_tokens = 4096,
-                            min_new_tokens = 10,
-                            temperature = 1.0
+                            max_new_tokens=safe_new_tokens,
+                            eos_token_id=vlm.processor.tokenizer.eos_token_id,
+                            pad_token_id=vlm.processor.tokenizer.pad_token_id,
                         )
 
                     elif args.model == "instructblip":
@@ -138,10 +152,10 @@ def rsvqa_main(args, vlm, device):
                             temperature=1.0)
                         
                 if args.model == "instructblip":
-                    answer_dict["low"].append(vlm.processor.batch_decode(gen_ids, skip_special_tokens = True)[0].strip())
+                    answer_dict[data_type].append(vlm.processor.batch_decode(gen_ids, skip_special_tokens = True)[0].strip())
                 else:
-                    answer_dict["low"].append(vlm.processor.batch_decode(gen_ids, skip_special_tokens=True))
+                    answer_dict[data_type].append(vlm.processor.batch_decode(gen_ids, skip_special_tokens=True))
             
             os.makedirs("./results", exist_ok=True)
             with open(f"./results/{args.model}_{args.param}_results.json", "w") as f:
-                json.dump(answer_dict[args.model], f, indent=4)
+                json.dump(answer_dict, f, indent=4)

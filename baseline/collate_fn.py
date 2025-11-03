@@ -128,12 +128,14 @@ def blip2_collate_fn(batch, processor):
     texts = []
     for q in questions:
         texts.append(f"Question: {q} You must give final answer in one sentence.\nAnswer:")
-
+        
     inputs = processor(
-        images = pil_images,
-        text = texts,
-        padding = True,
-        return_tensors = "pt"
+        images=pil_images,
+        text=texts,
+        return_tensors="pt",
+        padding=True,
+        truncation=True,     # don't let the prompt explode
+        max_length=256       # keep prompt tight
     )
 
     return inputs, questions, answers

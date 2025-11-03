@@ -90,18 +90,27 @@ def gemma(param : int = 27): # gemma 함수 정의
     return model, processor # 모델과 프로세서 반환
 
 def blip2(param):
-    model_name = "Salesforce/blip2-opt-2.7b"
-
-    model = AutoModelForImageTextToText.from_pretrained(model_name, dtype = torch.float16, device_map = "auto").eval()
-    processor = AutoProcessor.from_pretrained(model_name)
+    model = AutoModelForImageTextToText.from_pretrained(
+        "Salesforce/blip2-opt-2.7b",
+        torch_dtype=torch.float16,
+        device_map="auto",
+    )
+    processor = AutoProcessor.from_pretrained("Salesforce/blip2-opt-2.7b")
 
     tok = processor.tokenizer
+    tok.padding_side = "left"  # critical for decoder-only LMs like OPT
+
+    # ensure pad token is defined
     if tok.pad_token_id is None and tok.eos_token_id is not None:
         tok.pad_token = tok.eos_token
 
-    if getattr(model.config, "pad_token_id", None) != tok.pad_token_id:
-        model.config.pad_token_id = tok.pad_token_id
+    # keep model configs consistent with tokenizer
+    model.config.pad_token_id = tok.pad_token_id
+    if hasattr(model, "generation_config"):
+        model.generation_config.pad_token_id = tok.pad_token_id
+        model.generation_config.eos_token_id = tok.eos_token_id
 
+    model.eval()
     return model, processor
 
 def instructBLIP():
