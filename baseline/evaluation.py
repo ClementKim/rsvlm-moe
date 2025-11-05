@@ -35,6 +35,32 @@ def ExtractResponse(model_name : str, parameter : str) -> list:
 
     return low_answer, high_answer
 
+def extractResponse2(model_name):
+    low_answer = []
+    high_answer = []
+
+    for resol in ["low", "high"]:
+        dir = f"./results/{model_name}_{resol}_results.json"
+
+        if model_name == "geochat":
+            with open(dir, "r") as f:
+                response = [json.loads(line) for line in f]
+
+        else:
+            with open(dir, "r") as f:
+                response = json.load(f)
+
+        for res_dict in response:
+            answer = res_dict['answer']
+
+            if resol == "low":
+                low_answer.append(answer)
+
+            else:
+                high_answer.append(answer)
+
+    return low_answer, high_answer
+
 def ExtractReference(dataset : dict):
     low_reference = []
     high_reference = []
@@ -55,8 +81,6 @@ def bleu_score(references : list, candidates : list):
         cand_tokens = word_tokenize(cand)
         
         scores.append(bleu(ref_tokens, cand_tokens, smoothing_function = cc.method7))
-
-    print(sum(scores))
 
     return sum(scores) / len(scores)
 
@@ -89,6 +113,37 @@ def bert_score(references : list, candidates : list, device):
 
 def evaluation_main(args, device, test):
     low_answer, high_answer = ExtractResponse(args.model, str(args.param))
+    low_reference, high_reference = ExtractReference(test)
+
+    # Bert Score
+    precision_low, recall_low, f1_low = bert_score(low_reference, low_answer, device)
+    precision_high, recall_high, f1_high = bert_score(high_reference, high_answer, device)
+
+    # Bleu score
+    bleu_low = bleu_score(low_reference, low_answer)
+    bleu_high = bleu_score(high_reference, high_answer)
+
+    # Rouge score
+    rouge_low = rouge_score(low_reference, low_answer)
+    rouge_high = rouge_score(high_reference, high_answer)
+
+    # Meteor score
+    meteor_low = meteor_score(low_reference, low_answer)
+    meteor_high = meteor_score(high_reference, high_answer)
+
+    # print results
+    print(f"{args.model} [Low Resolution] BERTScore - Precision: {precision_low:.4f}, Recall: {recall_low:.4f}, F1: {f1_low:.4f}")
+    print(f"{args.model} [Low Resolution] BLEU Score: {bleu_low:.4f}")
+    print(f"{args.model} [Low Resolution] ROUGE Score: {rouge_low}")
+    # print(f"{args.model} [Low Resolution] METEOR Score: {meteor_low}")
+
+    print(f"{args.model} [High Resolution] BERTScore - Precision: {precision_high:.4f}, Recall: {recall_high:.4f}, F1: {f1_high:.4f}")
+    print(f"{args.model} [High Resolution] BLEU Score: {bleu_high:.4f}")
+    print(f"{args.model} [High Resolution] ROUGE Score: {rouge_high}")
+    # print(f"{args.model} [High Resolution] METEOR Score: {meteor_high}")
+
+def paper_model_evaluation_main(args, device, test):
+    low_answer, high_answer = extractResponse2(args.model)
     low_reference, high_reference = ExtractReference(test)
 
     # Bert Score

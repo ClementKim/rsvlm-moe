@@ -12,6 +12,4 @@ echo "start blip2"
 
 python3 baseline/baseline_main.py --model blip2 --param 0 --batch $BATCH --seed $SEED --eval False 2> results/blip2_err
 
-rm -rf ~/.cache/huggingface/hub/*
-
 echo "done blip2"

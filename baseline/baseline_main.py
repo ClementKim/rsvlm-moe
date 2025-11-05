@@ -40,10 +40,21 @@ def main(args):
     args.test = str_to_bool(args.test)
     args.eval = str_to_bool(args.eval)
 
-    vlm = initialize_model(args)
+    if args.model in ["geochat", "skyeyegpt"] and args.eval:
+        from rsvqa import rsvqa_dataset
+        low_dataset, high_dataset, full_dataset = rsvqa_dataset(args)
 
-    if args.dataset == "rsvqa":
-        rsvqa_main(args, vlm, device)
+        from evaluation import paper_model_evaluation_main
+        paper_model_evaluation_main(args, device, full_dataset)
+
+    elif args.model in ["geochat", "skyeyegpt"] and not(args.eval):
+        raise ValueError("Evaluation only for paper models")
+
+    else:
+        vlm = initialize_model(args)
+
+        if args.dataset == "rsvqa":
+            rsvqa_main(args, vlm, device)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

@@ -1,5 +1,6 @@
 #!/bin/bash
 
+unset PYTORCH_CUDA_ALLOC_CONF
 export CUDA_VISIBLE_DEVICES=1
 
 conda activate minigptv

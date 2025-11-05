@@ -92,7 +92,7 @@ def gemma(param : int = 27): # gemma 함수 정의
 def blip2(param):
     model = AutoModelForImageTextToText.from_pretrained(
         "Salesforce/blip2-opt-2.7b",
-        torch_dtype=torch.float16,
+        dtype=torch.float16,
         device_map="auto",
     )
     processor = AutoProcessor.from_pretrained("Salesforce/blip2-opt-2.7b")

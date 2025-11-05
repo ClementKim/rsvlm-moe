@@ -5,10 +5,10 @@ vlm.zip
 rsvqa
 baseline/GeoChat
 baseline/MiniGPT-4
-llm
 dataset.tar
 baseline/LLaVA
 baseline/MoAI
 baseline/RS-CLIP
 baseline/RS-MoE
 baseline/RSVQA
+.env
