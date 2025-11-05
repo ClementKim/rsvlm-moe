@@ -1,0 +1,181 @@
+import re
+import json
+import nltk
+
+from nltk.tokenize import word_tokenize
+from nltk.translate.bleu_score import sentence_bleu as bleu # bleu score
+from nltk.translate.bleu_score import SmoothingFunction
+from rouge import Rouge # rouge score
+from nltk.translate.meteor_score import meteor_score as meteor # meteor score
+from evaluate import load # bert score
+
+def ExtractResponse(model_name : str, parameter : str) -> list:
+    dir = f"./results/{model_name}_{parameter}_results.json"
+    with open(dir, "r") as f:
+        response = json.load(f)
+    
+    low_answer = []
+    high_answer = []
+    if model_name == "qwen":
+        pattern = r"\nassistant\n"
+
+    elif model_name == "gemma":
+        pattern = r"\nmodel\n"
+
+    elif model_name == "blip2":
+        pattern = r"\nAnswer:"
+
+    for resolution, value in response.items():
+        for batch in value:
+            for item in batch:
+                if resolution == "low":
+                    low_answer.append(re.compile(pattern).split(item)[1].strip())
+                elif resolution == "high":
+                    high_answer.append(re.compile(pattern).split(item)[1].strip())
+
+    return low_answer, high_answer
+
+def extractResponse2(model_name):
+    low_answer = []
+    high_answer = []
+
+    for resol in ["low", "high"]:
+        dir = f"./results/{model_name}_{resol}_results.json"
+
+        if model_name == "geochat":
+            with open(dir, "r") as f:
+                response = [json.loads(line) for line in f]
+
+        else:
+            with open(dir, "r") as f:
+                response = json.load(f)
+
+        for res_dict in response:
+            answer = res_dict['answer']
+
+            if resol == "low":
+                low_answer.append(answer)
+
+            else:
+                high_answer.append(answer)
+
+    return low_answer, high_answer
+
+def ExtractReference(dataset : dict):
+    low_reference = []
+    high_reference = []
+    for resolution, value in dataset.items():
+        for question_id, item in value.items():
+            if resolution == "low":
+                low_reference.append(item["answer"])
+            elif resolution == "high":
+                high_reference.append(item["answer"])
+
+    return low_reference, high_reference
+
+def bleu_score(references : list, candidates : list):
+    scores = []
+    cc = SmoothingFunction()
+    for ref, cand in zip(references, candidates):
+        ref_tokens = word_tokenize(ref)
+        cand_tokens = word_tokenize(cand)
+        
+        scores.append(bleu(ref_tokens, cand_tokens, smoothing_function = cc.method7))
+
+    return sum(scores) / len(scores)
+
+def rouge_score(references : list, candidates : list):
+    rouge = Rouge()
+    score = rouge.get_scores(candidates, references, avg=True)
+
+    return score
+
+def meteor_score(references : list, candidates : list):
+    scores = []
+
+def cider_score(references : list, candidates : list):
+    pass
+
+def bert_score(references : list, candidates : list, device):
+    bertscore = load("bertscore")
+    results = bertscore.compute(predictions=candidates,
+                                references=references,
+                                lang="en",
+                                model_type = "roberta-large-mnli",
+                                device = device,
+                                idf = True)
+
+    precision = sum(results["precision"]) / len(results["precision"])
+    recall = sum(results["recall"]) / len(results["recall"])
+    f1 = sum(results["f1"]) / len(results["f1"])
+
+    return precision, recall, f1
+
+def evaluation_main(args, device, test):
+    low_answer, high_answer = ExtractResponse(args.model, str(args.param))
+    low_reference, high_reference = ExtractReference(test)
+
+    # Bert Score
+    precision_low, recall_low, f1_low = bert_score(low_reference, low_answer, device)
+    precision_high, recall_high, f1_high = bert_score(high_reference, high_answer, device)
+
+    # Bleu score
+    bleu_low = bleu_score(low_reference, low_answer)
+    bleu_high = bleu_score(high_reference, high_answer)
+
+    # Rouge score
+    rouge_low = rouge_score(low_reference, low_answer)
+    rouge_high = rouge_score(high_reference, high_answer)
+
+    # Meteor score
+    meteor_low = meteor_score(low_reference, low_answer)
+    meteor_high = meteor_score(high_reference, high_answer)
+
+    # print results
+    print(f"{args.model} [Low Resolution] BERTScore - Precision: {precision_low:.4f}, Recall: {recall_low:.4f}, F1: {f1_low:.4f}")
+    print(f"{args.model} [Low Resolution] BLEU Score: {bleu_low:.4f}")
+    print(f"{args.model} [Low Resolution] ROUGE Score: {rouge_low}")
+    # print(f"{args.model} [Low Resolution] METEOR Score: {meteor_low}")
+
+    print(f"{args.model} [High Resolution] BERTScore - Precision: {precision_high:.4f}, Recall: {recall_high:.4f}, F1: {f1_high:.4f}")
+    print(f"{args.model} [High Resolution] BLEU Score: {bleu_high:.4f}")
+    print(f"{args.model} [High Resolution] ROUGE Score: {rouge_high}")
+    # print(f"{args.model} [High Resolution] METEOR Score: {meteor_high}")
+
+def paper_model_evaluation_main(args, device, test):
+    low_answer, high_answer = extractResponse2(args.model)
+    low_reference, high_reference = ExtractReference(test)
+
+    # Bert Score
+    precision_low, recall_low, f1_low = bert_score(low_reference, low_answer, device)
+    precision_high, recall_high, f1_high = bert_score(high_reference, high_answer, device)
+
+    # Bleu score
+    bleu_low = bleu_score(low_reference, low_answer)
+    bleu_high = bleu_score(high_reference, high_answer)
+
+    # Rouge score
+    rouge_low = rouge_score(low_reference, low_answer)
+    rouge_high = rouge_score(high_reference, high_answer)
+
+    # Meteor score
+    meteor_low = meteor_score(low_reference, low_answer)
+    meteor_high = meteor_score(high_reference, high_answer)
+
+    # print results
+    print(f"{args.model} [Low Resolution] BERTScore - Precision: {precision_low:.4f}, Recall: {recall_low:.4f}, F1: {f1_low:.4f}")
+    print(f"{args.model} [Low Resolution] BLEU Score: {bleu_low:.4f}")
+    print(f"{args.model} [Low Resolution] ROUGE Score: {rouge_low}")
+    # print(f"{args.model} [Low Resolution] METEOR Score: {meteor_low}")
+
+    print(f"{args.model} [High Resolution] BERTScore - Precision: {precision_high:.4f}, Recall: {recall_high:.4f}, F1: {f1_high:.4f}")
+    print(f"{args.model} [High Resolution] BLEU Score: {bleu_high:.4f}")
+    print(f"{args.model} [High Resolution] ROUGE Score: {rouge_high}")
+    # print(f"{args.model} [High Resolution] METEOR Score: {meteor_high}")
+
+def main() -> None:
+    nltk.download('punkt_tab')
+    nltk.download('punkt')
+
+if __name__ == "__main__":
+    main()
