@@ -16,4 +16,4 @@ cd ../..
 
 conda deactivate
 
-source .venv/bin/activate
+# source .venv/bin/activate
