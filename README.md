@@ -1,1 +1,1 @@
-# cvpr-rsvlm
+# rsvlm-moe
