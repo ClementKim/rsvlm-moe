@@ -40,14 +40,15 @@ def main(args):
     args.test = str_to_bool(args.test)
     args.eval = str_to_bool(args.eval)
 
-    if args.model in ["geochat", "skyeyegpt"] and args.eval:
+    paper_model_name = ["geochat", "skyeyegpt"]
+    if args.model in paper_model_name and args.eval:
         from rsvqa import rsvqa_dataset
         low_dataset, high_dataset, full_dataset = rsvqa_dataset(args)
 
         from evaluation import paper_model_evaluation_main
         paper_model_evaluation_main(args, device, full_dataset)
 
-    elif args.model in ["geochat", "skyeyegpt"] and not(args.eval):
+    elif args.model in paper_model_name and not(args.eval):
         raise ValueError("Evaluation only for paper models")
 
     else:

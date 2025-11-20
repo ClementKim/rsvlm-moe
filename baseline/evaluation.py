@@ -6,8 +6,85 @@ from nltk.tokenize import word_tokenize
 from nltk.translate.bleu_score import sentence_bleu as bleu # bleu score
 from nltk.translate.bleu_score import SmoothingFunction
 from rouge import Rouge # rouge score
-from nltk.translate.meteor_score import meteor_score as meteor # meteor score
+from nltk.translate.meteor_score import meteor_score # meteor score
 from evaluate import load # bert score
+
+class Evaluator:
+    def __init__(self, device):
+        self.device = device
+        
+        # Bert score
+        self.bert_metric = load("bertscore")
+
+        # for Bleu
+        self.smoothing = SmoothingFunction().method7
+
+        # rouge score
+        self.rouge_metric = Rouge()
+
+    def compute_bleu(self, reference, candidate):
+        scores = []
+        for ref, cand in zip(reference, candidate):
+            ref_tokens = word_tokenize(ref)
+            cand_tokens = word_tokenize(cand)
+
+            if not ref_tokens or not cand_tokens:
+                scores.append(0)
+                continue
+
+            scores.append(bleu([ref_tokens], cand_tokens, smoothing_function = self.smoothing))
+
+        return sum(scores) / len(scores) if scores else 0
+
+    def compute_rouge(self, reference, candidate):
+        score = self.rouge_metric.get_scores(candidate, reference, avg=True)
+        return score
+
+    def compute_meteor(self, reference, candidate):
+        scores = []
+        for ref, cand in zip(reference, candidate):
+            ref_tokens = word_tokenize(ref.lower())
+            cand_tokens = word_tokenize(cand.lower())
+            scores.append(meteor_score([ref_tokens], cand_tokens))
+
+        return sum(scores) / len(scores) if scores else 0
+
+    def cider_score(self, reference, candidate):
+        pass
+
+    def bert_score(self, reference, candidate):
+        results = self.bert_metric.compute(predictions=candidate,
+                                    references=reference,
+                                    lang="en",
+                                    model_type = "roberta-large-mnli",
+                                    device = self.device,
+                                    idf = True)
+
+        precision = sum(results["precision"]) / len(results["precision"])
+        recall = sum(results["recall"]) / len(results["recall"])
+        f1 = sum(results["f1"]) / len(results["f1"])
+
+        return precision, recall, f1
+    
+    def evaluate_all(self, reference, candidate):
+        if not reference or not candidate:
+            raise ValueError("Reference and candidate lists must not be empty.")
+        
+        bleu = self.compute_bleu(reference, candidate)
+        rouge = self.compute_rouge(reference, candidate)
+        meteor = self.compute_meteor(reference, candidate)
+        precision, recall, f1 = self.bert_score(reference, candidate)
+
+        return {
+            "bleu": bleu,
+            "rouge": rouge,
+            "meteor": meteor,
+            "bert": {
+                "precision": precision,
+                "recall": recall,
+                "f1": f1
+            }
+        }
 
 def ExtractResponse(model_name : str, parameter : str) -> list:
     dir = f"./results/{model_name}_{parameter}_results.json"
@@ -73,109 +150,49 @@ def ExtractReference(dataset : dict):
 
     return low_reference, high_reference
 
-def bleu_score(references : list, candidates : list):
-    scores = []
-    cc = SmoothingFunction()
-    for ref, cand in zip(references, candidates):
-        ref_tokens = word_tokenize(ref)
-        cand_tokens = word_tokenize(cand)
-        
-        scores.append(bleu(ref_tokens, cand_tokens, smoothing_function = cc.method7))
-
-    return sum(scores) / len(scores)
-
-def rouge_score(references : list, candidates : list):
-    rouge = Rouge()
-    score = rouge.get_scores(candidates, references, avg=True)
-
-    return score
-
-def meteor_score(references : list, candidates : list):
-    scores = []
-
-def cider_score(references : list, candidates : list):
-    pass
-
-def bert_score(references : list, candidates : list, device):
-    bertscore = load("bertscore")
-    results = bertscore.compute(predictions=candidates,
-                                references=references,
-                                lang="en",
-                                model_type = "roberta-large-mnli",
-                                device = device,
-                                idf = True)
-
-    precision = sum(results["precision"]) / len(results["precision"])
-    recall = sum(results["recall"]) / len(results["recall"])
-    f1 = sum(results["f1"]) / len(results["f1"])
-
-    return precision, recall, f1
 
 def evaluation_main(args, device, test):
     low_answer, high_answer = ExtractResponse(args.model, str(args.param))
     low_reference, high_reference = ExtractReference(test)
 
-    # Bert Score
-    precision_low, recall_low, f1_low = bert_score(low_reference, low_answer, device)
-    precision_high, recall_high, f1_high = bert_score(high_reference, high_answer, device)
-
-    # Bleu score
-    bleu_low = bleu_score(low_reference, low_answer)
-    bleu_high = bleu_score(high_reference, high_answer)
-
-    # Rouge score
-    rouge_low = rouge_score(low_reference, low_answer)
-    rouge_high = rouge_score(high_reference, high_answer)
-
-    # Meteor score
-    meteor_low = meteor_score(low_reference, low_answer)
-    meteor_high = meteor_score(high_reference, high_answer)
+    evaluation_functions = Evaluator(device)
+    low_scores = evaluation_functions.evaluate_all(low_reference, low_answer)
+    high_scores = evaluation_functions.evaluate_all(high_reference, high_answer)
 
     # print results
-    print(f"{args.model} [Low Resolution] BERTScore - Precision: {precision_low:.4f}, Recall: {recall_low:.4f}, F1: {f1_low:.4f}")
-    print(f"{args.model} [Low Resolution] BLEU Score: {bleu_low:.4f}")
-    print(f"{args.model} [Low Resolution] ROUGE Score: {rouge_low}")
-    # print(f"{args.model} [Low Resolution] METEOR Score: {meteor_low}")
+    print(f"{args.model} [Low Resolution] BERTScore - Precision: {low_scores['bert']['precision']:.4f}, Recall: {low_scores['bert']['recall']:.4f}, F1: {low_scores['bert']['f1']:.4f}")
+    print(f"{args.model} [Low Resolution] BLEU Score: {low_scores['bleu']:.4f}")
+    print(f"{args.model} [Low Resolution] ROUGE Score: {low_scores['rouge']}")
+    print(f"{args.model} [Low Resolution] METEOR Score: {low_scores['meteor']}")
 
-    print(f"{args.model} [High Resolution] BERTScore - Precision: {precision_high:.4f}, Recall: {recall_high:.4f}, F1: {f1_high:.4f}")
-    print(f"{args.model} [High Resolution] BLEU Score: {bleu_high:.4f}")
-    print(f"{args.model} [High Resolution] ROUGE Score: {rouge_high}")
-    # print(f"{args.model} [High Resolution] METEOR Score: {meteor_high}")
+    print(f"{args.model} [High Resolution] BERTScore - Precision: {high_scores['bert']['precision']:.4f}, Recall: {high_scores['bert']['recall']:.4f}, F1: {high_scores['bert']['f1']:.4f}")
+    print(f"{args.model} [High Resolution] BLEU Score: {high_scores['bleu']:.4f}")
+    print(f"{args.model} [High Resolution] ROUGE Score: {high_scores['rouge']}")
+    print(f"{args.model} [High Resolution] METEOR Score: {high_scores['meteor']}")
 
 def paper_model_evaluation_main(args, device, test):
     low_answer, high_answer = extractResponse2(args.model)
     low_reference, high_reference = ExtractReference(test)
 
-    # Bert Score
-    precision_low, recall_low, f1_low = bert_score(low_reference, low_answer, device)
-    precision_high, recall_high, f1_high = bert_score(high_reference, high_answer, device)
-
-    # Bleu score
-    bleu_low = bleu_score(low_reference, low_answer)
-    bleu_high = bleu_score(high_reference, high_answer)
-
-    # Rouge score
-    rouge_low = rouge_score(low_reference, low_answer)
-    rouge_high = rouge_score(high_reference, high_answer)
-
-    # Meteor score
-    meteor_low = meteor_score(low_reference, low_answer)
-    meteor_high = meteor_score(high_reference, high_answer)
+    evaluation_functions = Evaluator(device)
+    low_scores = evaluation_functions.evaluate_all(low_reference, low_answer)
+    high_scores = evaluation_functions.evaluate_all(high_reference, high_answer)
 
     # print results
-    print(f"{args.model} [Low Resolution] BERTScore - Precision: {precision_low:.4f}, Recall: {recall_low:.4f}, F1: {f1_low:.4f}")
-    print(f"{args.model} [Low Resolution] BLEU Score: {bleu_low:.4f}")
-    print(f"{args.model} [Low Resolution] ROUGE Score: {rouge_low}")
-    # print(f"{args.model} [Low Resolution] METEOR Score: {meteor_low}")
+    print(f"{args.model} [Low Resolution] BERTScore - Precision: {low_scores['bert']['precision']:.4f}, Recall: {low_scores['bert']['recall']:.4f}, F1: {low_scores['bert']['f1']:.4f}")
+    print(f"{args.model} [Low Resolution] BLEU Score: {low_scores['bleu']:.4f}")
+    print(f"{args.model} [Low Resolution] ROUGE Score: {low_scores['rouge']}")
+    print(f"{args.model} [Low Resolution] METEOR Score: {low_scores['meteor']}")
 
-    print(f"{args.model} [High Resolution] BERTScore - Precision: {precision_high:.4f}, Recall: {recall_high:.4f}, F1: {f1_high:.4f}")
-    print(f"{args.model} [High Resolution] BLEU Score: {bleu_high:.4f}")
-    print(f"{args.model} [High Resolution] ROUGE Score: {rouge_high}")
-    # print(f"{args.model} [High Resolution] METEOR Score: {meteor_high}")
+    print(f"{args.model} [High Resolution] BERTScore - Precision: {high_scores['bert']['precision']:.4f}, Recall: {high_scores['bert']['recall']:.4f}, F1: {high_scores['bert']['f1']:.4f}")
+    print(f"{args.model} [High Resolution] BLEU Score: {high_scores['bleu']:.4f}")
+    print(f"{args.model} [High Resolution] ROUGE Score: {high_scores['rouge']}")
+    print(f"{args.model} [High Resolution] METEOR Score: {high_scores['meteor']}")
 
 def main() -> None:
     nltk.download('punkt_tab')
     nltk.download('punkt')
+    nltk.download('wordnet')
 
 if __name__ == "__main__":
     main()
