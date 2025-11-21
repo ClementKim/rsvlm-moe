@@ -1,6 +1,6 @@
 from qwen_vl_utils import process_vision_info
 
-def qwen_collate_fn(batch, processor, prompt, promtp_str):
+def qwen_collate_fn(batch, processor, prompt, prompt_str):
     """
     Qwen2.5-VL-72B-Instruct 전용.
     messages -> apply_chat_template(tokenize=False) -> process_vision_info -> processor(...)
@@ -19,7 +19,7 @@ def qwen_collate_fn(batch, processor, prompt, promtp_str):
             user_text = f"{q}\nYou must give final answer in one sentence"
 
         else:
-            user_text = promtp_str + f"{q}\n"
+            user_text = prompt_str + f"{q}\n"
         messages_list.append([
             {
                 "role": "user",

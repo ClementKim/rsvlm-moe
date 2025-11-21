@@ -97,35 +97,35 @@ def rsvqa_main(args, vlm, device):
     low_dataset, high_dataset, full_dataset = rsvqa_dataset(args)
 
     # prompt
-    prompt = f"\
-                # Identity\n \
-                You are an expert in remote sensing image understanding and analysis, especially for visual question answering about aerial image tasks.\n\n\
-                \
-                # Instructions\n\
-                * Perspective Awareness: Always analyze images assuming a 'nadir' (bird's-eye) or high angle aerial view. Don't interpret flat roofs as floors or roads as walls.\n\
-                * Counting precision: When asked to count objects (e.g., buildings, vehicles, planes), be extremely rigorous. If objects are clustered, estimate based on density but prioritize individual distinct features.\n\
-                * Consisness: Provide direct, factual answers. Don't add 'I think' or 'it appears to be'\n\
-                * Format: Return only the final answer string (e.g., 'yes', '5', 'residential area') without markdown formatting or conversational filler, unless the user explicitly asks for an explanation.\n\n\
-                \
-                # Examples\n\
-                <User_Query>\n\
-                [Image Context: Aerial view of a suburban neighborhood]\n\
-                Is this area urban or rural?\n\
-                <\User_Query>\n\
-                <Assistant_Response>\n\
-                urban\n\
-                <\Assistant_Response>\n\n\
-                \
-                <User_Query>\n\
-                [Image Context: Aerial view of a Wall-Mart parking lot filled with cars]\n\
-                How many vehicles are visible in the parking lot?\n\
-                <\User_Query>\n\
-                <Assistant_Response>\n\
-                126\n\
-                <\Assistant_Response>\n\n\
-                \
-                # User Query\n\
-            "
+    prompt = """
+                # Identity
+                You are an expert in remote sensing image understanding and analysis, especially for visual question answering about aerial image tasks.
+                
+                # Instructions
+                * Perspective Awareness: Always analyze images assuming a 'nadir' (bird's-eye) or high angle aerial view. Don't interpret flat roofs as floors or roads as walls.
+                * Counting precision: When asked to count objects (e.g., buildings, vehicles, planes), be extremely rigorous. If objects are clustered, estimate based on density but prioritize individual distinct features.
+                * Consisness: Provide direct, factual answers. Don't add 'I think' or 'it appears to be'
+                * Format: Return only the final answer string (e.g., 'yes', '5', 'residential area') without markdown formatting or conversational filler, unless the user explicitly asks for an explanation.
+                
+                # Examples
+                <User_Query>
+                [Image Context: Aerial view of a suburban neighborhood]
+                Is this area urban or rural?
+                </User_Query>
+                <Assistant_Response>
+                urban
+                </Assistant_Response>
+                
+                <User_Query>
+                [Image Context: Aerial view of a Wall-Mart parking lot filled with cars]
+                How many vehicles are visible in the parking lot?
+                </User_Query>
+                <Assistant_Response>
+                126
+                </Assistant_Response>
+                
+                # User Query
+        """
 
     if args.eval:
         evaluation_main(args, device, full_dataset)
@@ -188,5 +188,5 @@ def rsvqa_main(args, vlm, device):
                     answer_dict[data_type].append(vlm.processor.batch_decode(gen_ids, skip_special_tokens=True))
             
             os.makedirs("./results", exist_ok=True)
-            with open(f"./results/{args.model}_{args.param}_results.json", "w") as f:
+            with open(f"./results/{args.model}_{args.param}_{args.seed}_prompt_{args.prompt}_results.json", "w") as f:
                 json.dump(answer_dict, f, indent=4)

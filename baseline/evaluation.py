@@ -112,8 +112,8 @@ class Evaluator:
             }
         }
 
-def ExtractResponse(model_name : str, parameter : str) -> list:
-    dir = f"./results/{model_name}_{parameter}_results.json"
+def ExtractResponse(args, model_name : str, parameter : str) -> list:
+    dir = f"./results/{model_name}_{parameter}_{args.seed}_prompt_{args.prompt}_results.json"
     with open(dir, "r") as f:
         response = json.load(f)
     
@@ -138,12 +138,12 @@ def ExtractResponse(model_name : str, parameter : str) -> list:
 
     return low_answer, high_answer
 
-def extractResponse2(model_name):
+def extractResponse2(args, model_name):
     low_answer = []
     high_answer = []
 
     for resol in ["low", "high"]:
-        dir = f"./results/{model_name}_{resol}_results.json"
+        dir = f"./results/{model_name}_{resol}_{args.seed}_prompt_{args.prompt}_results.json"
 
         if model_name == "geochat":
             with open(dir, "r") as f:
