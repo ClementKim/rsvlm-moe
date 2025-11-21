@@ -38,6 +38,7 @@ def main(args):
     args.train = str_to_bool(args.train)
     args.val = str_to_bool(args.val)
     args.test = str_to_bool(args.test)
+    args.prompt = str_to_bool(args.prompt)
     args.eval = str_to_bool(args.eval)
 
     paper_model_name = ["geochat", "skyeyegpt"]
@@ -67,6 +68,7 @@ if __name__ == "__main__":
     parser.add_argument("--train", type = str, default = "False")
     parser.add_argument("--val", type = str, default = "False")
     parser.add_argument("--test", type = str, default = "True")
+    parser.add_argument("--prompt", type = str, default = "False")
     parser.add_argument("--eval", type = str, default = "False")
     args = parser.parse_args()
 

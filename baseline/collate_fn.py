@@ -1,6 +1,6 @@
 from qwen_vl_utils import process_vision_info
 
-def qwen_collate_fn(batch, processor):
+def qwen_collate_fn(batch, processor, prompt, promtp_str):
     """
     Qwen2.5-VL-72B-Instruct 전용.
     messages -> apply_chat_template(tokenize=False) -> process_vision_info -> processor(...)
@@ -15,7 +15,11 @@ def qwen_collate_fn(batch, processor):
     # Qwen 메시지 포맷 구성
     messages_list = []
     for pil, q in zip(pil_images, questions):
-        user_text = f"{q}\nYou must give final answer in one sentence"
+        if not prompt:
+            user_text = f"{q}\nYou must give final answer in one sentence"
+
+        else:
+            user_text = promtp_str + f"{q}\n"
         messages_list.append([
             {
                 "role": "user",
@@ -43,7 +47,7 @@ def qwen_collate_fn(batch, processor):
     return inputs, questions, answers
 
 
-def llama_collate_fn(batch, processor):
+def llama_collate_fn(batch, processor, prompt, prompt_str):
     """
     Llama-3.2-90B-Vision-Instruct 전용.
     messages -> apply_chat_template(tokenize=False) -> processor(images=..., text=...)
@@ -56,7 +60,12 @@ def llama_collate_fn(batch, processor):
 
     texts = []
     for q in questions:
-        user_text = f"{q} You must give final answer in one sentence."
+        if not prompt:
+            user_text = f"{q} You must give final answer in one sentence."
+
+        else:
+            user_text = prompt_str + f"{q}\n"
+
         messages = [
             {"role": "user",
              "content": [
@@ -80,7 +89,7 @@ def llama_collate_fn(batch, processor):
     return inputs, questions, answers
 
 
-def gemma_collate_fn(batch, processor):
+def gemma_collate_fn(batch, processor, prompt, prompt_str):
     """
     gemma-3-27b-it 전용 (멀티모달).
     apply_chat_template을 사용하여 정확한 프롬프트 형식을 생성합니다.
@@ -94,7 +103,10 @@ def gemma_collate_fn(batch, processor):
     texts = []
     for q in questions:
         # CORRECT: Structure content as a list of dictionaries
-        user_text = f"{q} You must give final answer in one sentence."
+        if not prompt:
+            user_text = f"{q} You must give final answer in one sentence."
+        else:
+            user_text = prompt_str + f"{q}\n"
         messages = [
             {
                 "role": "user", 
@@ -118,7 +130,7 @@ def gemma_collate_fn(batch, processor):
 
     return inputs, questions, answers
 
-def blip2_collate_fn(batch, processor):
+def blip2_collate_fn(batch, processor, prompt, prompt_str):
     questions, answers, pil_images = [], [], []
     for q, a, img in batch:
         questions.append(q)
@@ -127,7 +139,10 @@ def blip2_collate_fn(batch, processor):
     
     texts = []
     for q in questions:
-        texts.append(f"Question: {q} You must give final answer in one sentence.\nAnswer:")
+        if not prompt:
+            texts.append(f"Question: {q} You must give final answer in one sentence.\nAnswer:")
+        else:
+            texts.append(prompt_str + f"{q} You must give final answer in one sentence.\n\n<Assistant_Response>\n")
         
     inputs = processor(
         images=pil_images,

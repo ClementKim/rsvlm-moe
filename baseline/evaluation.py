@@ -66,6 +66,26 @@ class Evaluator:
 
         return precision, recall, f1
     
+    def compute_token(self, reference, candidate):
+        correct_tokens = 0
+        total_ref_tokens = 0
+        total_cand_tokens = 0
+        for ref, cand in zip(reference, candidate):
+            ref_tokens = word_tokenize(ref.lower())
+            cand_tokens = word_tokenize(cand.lower())
+
+            for token in cand_tokens:
+                if token in ref_tokens:
+                    correct_tokens += 1
+            total_cand_tokens += len(cand_tokens)
+            total_ref_tokens += len(ref_tokens)
+
+        precision = correct_tokens / total_cand_tokens if total_cand_tokens > 0 else 0
+        recall = correct_tokens / total_ref_tokens if total_ref_tokens > 0 else 0
+        f1 = (2 * precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
+
+        return precision, recall, f1
+    
     def evaluate_all(self, reference, candidate):
         if not reference or not candidate:
             raise ValueError("Reference and candidate lists must not be empty.")
@@ -73,16 +93,22 @@ class Evaluator:
         bleu = self.compute_bleu(reference, candidate)
         rouge = self.compute_rouge(reference, candidate)
         meteor = self.compute_meteor(reference, candidate)
-        precision, recall, f1 = self.bert_score(reference, candidate)
+        bert_precision, bert_recall, bert_f1 = self.bert_score(reference, candidate)
+        token_precision, token_recall, token_f1 = self.compute_token(reference, candidate)
 
         return {
             "bleu": bleu,
             "rouge": rouge,
             "meteor": meteor,
             "bert": {
-                "precision": precision,
-                "recall": recall,
-                "f1": f1
+                "precision": bert_precision,
+                "recall": bert_recall,
+                "f1": bert_f1
+            },
+            "token": {
+                "precision": token_precision,
+                "recall": token_recall,
+                "f1": token_f1
             }
         }
 
@@ -164,11 +190,13 @@ def evaluation_main(args, device, test):
     print(f"{args.model} [Low Resolution] BLEU Score: {low_scores['bleu']:.4f}")
     print(f"{args.model} [Low Resolution] ROUGE Score: {low_scores['rouge']}")
     print(f"{args.model} [Low Resolution] METEOR Score: {low_scores['meteor']}")
+    print(f"{args.model} [Low Resolution] Token Score - Precision: {low_scores['token']['precision']:.4f}, Recall: {low_scores['token']['recall']:.4f}, F1: {low_scores['token']['f1']:.4f}")
 
     print(f"{args.model} [High Resolution] BERTScore - Precision: {high_scores['bert']['precision']:.4f}, Recall: {high_scores['bert']['recall']:.4f}, F1: {high_scores['bert']['f1']:.4f}")
     print(f"{args.model} [High Resolution] BLEU Score: {high_scores['bleu']:.4f}")
     print(f"{args.model} [High Resolution] ROUGE Score: {high_scores['rouge']}")
     print(f"{args.model} [High Resolution] METEOR Score: {high_scores['meteor']}")
+    print(f"{args.model} [High Resolution] Token Score - Precision: {high_scores['token']['precision']:.4f}, Recall: {high_scores['token']['recall']:.4f}, F1: {high_scores['token']['f1']:.4f}")
 
 def paper_model_evaluation_main(args, device, test):
     low_answer, high_answer = extractResponse2(args.model)
@@ -183,11 +211,13 @@ def paper_model_evaluation_main(args, device, test):
     print(f"{args.model} [Low Resolution] BLEU Score: {low_scores['bleu']:.4f}")
     print(f"{args.model} [Low Resolution] ROUGE Score: {low_scores['rouge']}")
     print(f"{args.model} [Low Resolution] METEOR Score: {low_scores['meteor']}")
+    print(f"{args.model} [Low Resolution] Token Score - Precision: {low_scores['token']['precision']:.4f}, Recall: {low_scores['token']['recall']:.4f}, F1: {low_scores['token']['f1']:.4f}")
 
     print(f"{args.model} [High Resolution] BERTScore - Precision: {high_scores['bert']['precision']:.4f}, Recall: {high_scores['bert']['recall']:.4f}, F1: {high_scores['bert']['f1']:.4f}")
     print(f"{args.model} [High Resolution] BLEU Score: {high_scores['bleu']:.4f}")
     print(f"{args.model} [High Resolution] ROUGE Score: {high_scores['rouge']}")
     print(f"{args.model} [High Resolution] METEOR Score: {high_scores['meteor']}")
+    print(f"{args.model} [High Resolution] Token Score - Precision: {high_scores['token']['precision']:.4f}, Recall: {high_scores['token']['recall']:.4f}, F1: {high_scores['token']['f1']:.4f}")
 
 def main() -> None:
     nltk.download('punkt_tab')

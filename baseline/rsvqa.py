@@ -29,7 +29,7 @@ class RS_dataset(Dataset):
 
         return question, answer, img
     
-def loader(args, dataset, collate_fn, processor):
+def loader(args, dataset, collate_fn, processor, prompt_str):
     return DataLoader(
         dataset,
         batch_size = args.batch,
@@ -38,7 +38,7 @@ def loader(args, dataset, collate_fn, processor):
         pin_memory = True,
         persistent_workers = True,
         prefetch_factor = 4,
-        collate_fn = partial(collate_fn, processor = processor)
+        collate_fn = partial(collate_fn, processor = processor, prompt = args.prompt, prompt_str = prompt_str)
     )
     
 def rsvqa_dataset(args):
@@ -96,6 +96,37 @@ def rsvqa_main(args, vlm, device):
     # Load datasets
     low_dataset, high_dataset, full_dataset = rsvqa_dataset(args)
 
+    # prompt
+    prompt = f"\
+                # Identity\n \
+                You are an expert in remote sensing image understanding and analysis, especially for visual question answering about aerial image tasks.\n\n\
+                \
+                # Instructions\n\
+                * Perspective Awareness: Always analyze images assuming a 'nadir' (bird's-eye) or high angle aerial view. Don't interpret flat roofs as floors or roads as walls.\n\
+                * Counting precision: When asked to count objects (e.g., buildings, vehicles, planes), be extremely rigorous. If objects are clustered, estimate based on density but prioritize individual distinct features.\n\
+                * Consisness: Provide direct, factual answers. Don't add 'I think' or 'it appears to be'\n\
+                * Format: Return only the final answer string (e.g., 'yes', '5', 'residential area') without markdown formatting or conversational filler, unless the user explicitly asks for an explanation.\n\n\
+                \
+                # Examples\n\
+                <User_Query>\n\
+                [Image Context: Aerial view of a suburban neighborhood]\n\
+                Is this area urban or rural?\n\
+                <\User_Query>\n\
+                <Assistant_Response>\n\
+                urban\n\
+                <\Assistant_Response>\n\n\
+                \
+                <User_Query>\n\
+                [Image Context: Aerial view of a Wall-Mart parking lot filled with cars]\n\
+                How many vehicles are visible in the parking lot?\n\
+                <\User_Query>\n\
+                <Assistant_Response>\n\
+                126\n\
+                <\Assistant_Response>\n\n\
+                \
+                # User Query\n\
+            "
+
     if args.eval:
         evaluation_main(args, device, full_dataset)
 
@@ -106,7 +137,7 @@ def rsvqa_main(args, vlm, device):
         }
         
         for dataset in [low_dataset, high_dataset]:
-            data_loader = loader(args, dataset, vlm.collate_fn, vlm.processor)
+            data_loader = loader(args, dataset, vlm.collate_fn, vlm.processor, prompt)
 
             if dataset == low_dataset:
                 data_type = "low"
