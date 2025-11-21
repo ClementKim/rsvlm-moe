@@ -55,14 +55,53 @@ def main(args):
         evaluation_main(param = args.param, device = "cuda" if torch.cuda.is_available() else "cpu", test = test_dataset)
         return
 
+    args.prompt = str_to_bool(args.prompt)
+
     gemini_response = {"low": {},
                        "high": {}}
     
+    prompt = """
+                # Identity
+                You are an expert in remote sensing image understanding and analysis, especially for visual question answering about aerial image tasks.
+                
+                # Instructions
+                * Perspective Awareness: Always analyze images assuming a 'nadir' (bird's-eye) or high angle aerial view. Don't interpret flat roofs as floors or roads as walls.
+                * Counting precision: When asked to count objects (e.g., buildings, vehicles, planes), be extremely rigorous. If objects are clustered, estimate based on density but prioritize individual distinct features.
+                * Consisness: Provide direct, factual answers. Don't add 'I think' or 'it appears to be'
+                * Format: Return only the final answer string (e.g., 'yes', '5', 'residential area') without markdown formatting or conversational filler, unless the user explicitly asks for an explanation.
+                
+                # Examples
+                <User_Query>
+                [Image Context: Aerial view of a suburban neighborhood]
+                Is this area urban or rural?
+                </User_Query>
+                <Assistant_Response>
+                urban
+                </Assistant_Response>
+                
+                <User_Query>
+                [Image Context: Aerial view of a Wall-Mart parking lot filled with cars]
+                How many vehicles are visible in the parking lot?
+                </User_Query>
+                <Assistant_Response>
+                126
+                </Assistant_Response>
+                
+                # User Query
+
+        """
+    
     # openai_response = {"low": {},
     #                    "high": {}}
+    
     for resol, value in test_dataset.items():
         for question_id, question_set in tqdm(value.items()):
-            question = f"{question_set['question']}. Answer in one sentence."
+            if not args.prompt:
+                question = f"{question_set['question']}. Answer in one sentence."
+
+            else:
+                question = prompt + question_set['question']
+
             img_path = question_set['image_path']
 
             img = Image.open(img_path)
@@ -94,5 +133,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--evaluation", type = str, default = "False")
     parser.add_argument("--param", type = str, default = "flash")
+    parser.add_argument("--prompt", type = str, default = "True")
     args = parser.parse_args()
     main(args)

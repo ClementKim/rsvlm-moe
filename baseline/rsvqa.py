@@ -125,6 +125,7 @@ def rsvqa_main(args, vlm, device):
                 </Assistant_Response>
                 
                 # User Query
+                
         """
 
     if args.eval:
